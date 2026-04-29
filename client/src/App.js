@@ -4,9 +4,22 @@ import {
   registerUser, loginUser, logoutUser, heartbeat, getAllUsers,
   sendRequest, acceptRequest, getFriends, getRequests, removeFriend,
   sendGameInvite, acceptGameInvite, rejectGameInvite, getGameInvites,
-  startGame, updateProfile, getHistory
+  startGame, updateProfile, getHistory, getActiveGame, leaveGame
 } from "./api";
 import GameScreen from "./components/GameScreen";
+import HiddenNumberGame from "./components/HiddenNumberGame";
+import RPSGame from "./components/RPSGame";
+import EvenOddGame from "./components/EvenOddGame";
+import TicTacToeGame from "./components/TicTacToeGame";
+import TossScreen from "./components/TossScreen";
+
+const GAMES = [
+    { id: 'handcricket', name: '🏏 Hand Cricket', desc: 'Classic hand cricket multiplayer' },
+    { id: 'hidden-number', name: '🔢 Hidden Number', desc: 'Guess the secret number' },
+    { id: 'rps', name: '✌️ Rock Paper Scissors', desc: 'Classic RPS, best of 3' },
+    { id: 'evenodd', name: '🎲 Even-Odd', desc: 'Even or Odd? Sum it up!' },
+    { id: 'tictactoe', name: '❌ Tic Tac Toe ⭕', desc: 'Classic 3x3 grid game' },
+];
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
@@ -21,7 +34,8 @@ function App() {
   const [requests, setRequests] = useState([]);
   const [gameInvites, setGameInvites] = useState([]);
   const [history, setHistory] = useState([]);
-  const [currentGameId, setCurrentGameId] = useState(null);
+  const [currentGame, setCurrentGame] = useState(null); // { id, type }
+  const [selectedGameType, setSelectedGameType] = useState('handcricket');
 
   const [notification, setNotification] = useState(null);
 
@@ -64,7 +78,7 @@ function App() {
       await logoutUser({ email: user });
       setUser(null);
       setUsername(null);
-      setCurrentGameId(null);
+      setCurrentGame(null);
       localStorage.removeItem("userEmail");
       localStorage.removeItem("userName");
   };
@@ -87,25 +101,35 @@ function App() {
     const loadData = async () => {
       try {
         await heartbeat({ email: user });
-        const [u, f, r, g, h] = await Promise.all([
+        const [u, f, r, g, h, active] = await Promise.all([
             getAllUsers(user),
             getFriends(user),
             getRequests(user),
             getGameInvites(user),
-            getHistory(user)
+            getHistory(user),
+            getActiveGame(user)
         ]);
         if(Array.isArray(u)) setAllUsers(u);
         if(Array.isArray(f)) setFriends(f);
         if(Array.isArray(r)) setRequests(r);
         if(Array.isArray(g)) setGameInvites(g);
         if(Array.isArray(h)) setHistory(h);
+
+        if(active && active.active) {
+            if(!currentGame || currentGame.id !== active.gameId || currentGame.status !== active.status) {
+                setCurrentGame({ id: active.gameId, type: active.gameType, status: active.status });
+            }
+        } else if (currentGame) {
+            // Wait, if active is false, but we are viewing a finished game, don't clear it.
+            // But if we are polling and it suddenly disappears from active, we don't clear it immediately unless we click Leave.
+        }
       } catch (e) { console.error(e); }
     };
 
     loadData();
     const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, currentGame]);
 
   const handleSendFriendRequest = async (email) => {
     await sendRequest({ fromEmail: user, toEmail: email });
@@ -125,22 +149,32 @@ function App() {
   };
 
   const handleSendGameInvite = async (email) => {
-    await sendGameInvite({ fromEmail: user, toEmail: email });
-    showNotification("Game invite sent!");
+    await sendGameInvite({ fromEmail: user, toEmail: email, gameType: selectedGameType });
+    showNotification(`Game invite for ${GAMES.find(g => g.id === selectedGameType)?.name} sent!`);
   };
 
-  const handleAcceptGameInvite = async (email) => {
-    const res = await acceptGameInvite({ userEmail: user, requesterEmail: email });
-    if(res.gameId) setCurrentGameId(res.gameId);
+  const handleAcceptGameInvite = async (invite) => {
+    const res = await acceptGameInvite({ userEmail: user, requesterEmail: invite.email, gameType: invite.gameType });
+    if(res.gameId) setCurrentGame({ id: res.gameId, type: invite.gameType });
   };
 
-  const handleRejectGameInvite = async (email) => {
-    await rejectGameInvite({ userEmail: user, requesterEmail: email });
+  const handleRejectGameInvite = async (invite) => {
+    await rejectGameInvite({ userEmail: user, requesterEmail: invite.email, gameType: invite.gameType });
+  };
+
+  const handleExitGame = async (gameId) => {
+      if(window.confirm("Are you sure you want to leave? This will count as a forfeit.")) {
+          await leaveGame({ gameId, userEmail: user });
+          setCurrentGame(null);
+      }
   };
 
   const startBotMode = async (mode) => {
-      const res = await startGame({ player1: user, player2: "Bot", mode });
-      if(res.gameId) setCurrentGameId(res.gameId);
+      const res = await startGame({ player1: user, player2: "Bot", mode, gameType: selectedGameType });
+      if(res.gameId) {
+          // Hand cricket goes to Toss, others go straight to playing
+          setCurrentGame({ id: res.gameId, type: selectedGameType, status: selectedGameType === 'handcricket' ? 'toss' : 'playing' });
+      }
   };
 
   if (!user) {
@@ -162,8 +196,22 @@ function App() {
     );
   }
 
-  if (currentGameId) {
-    return <GameScreen gameId={currentGameId} userEmail={user} username={username} onExit={() => setCurrentGameId(null)} />;
+  if (currentGame) {
+    if (currentGame.type === 'handcricket' && currentGame.status === 'toss') {
+        return <TossScreen gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} onTossComplete={() => setCurrentGame({ ...currentGame, status: 'playing' })} />;
+    }
+    
+    if (currentGame.type === 'hidden-number') {
+        return <HiddenNumberGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+    } else if (currentGame.type === 'rps') {
+        return <RPSGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+    } else if (currentGame.type === 'evenodd') {
+        return <EvenOddGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+    } else if (currentGame.type === 'tictactoe') {
+        return <TicTacToeGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+    }
+    // Default to hand cricket
+    return <GameScreen gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
   }
 
   const botModes = [
@@ -189,6 +237,7 @@ function App() {
           <button className={activeTab === 'friends' ? 'active' : ''} onClick={() => setActiveTab('friends')}>👥 Friends</button>
           <button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>📜 History</button>
           <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>👤 Profile</button>
+          <button className={activeTab === 'about' ? 'active' : ''} onClick={() => setActiveTab('about')}>ℹ️ About</button>
         </div>
       </nav>
 
@@ -196,12 +245,12 @@ function App() {
         {gameInvites.length > 0 && (
             <div className="invite-banner">
                 <h3>🎮 You have {gameInvites.length} Game Invite(s)!</h3>
-                {gameInvites.map(g => (
-                    <div key={g._id} className="invite-row">
-                        <span>{g.username} invited you to play!</span>
+                {gameInvites.map((g, idx) => (
+                    <div key={idx} className="invite-row">
+                        <span>{g.username} invited you to play {GAMES.find(x => x.id === g.gameType)?.name || "a game"}!</span>
                         <div>
-                            <button className="accept-btn" onClick={() => handleAcceptGameInvite(g.email)}>Accept</button>
-                            <button className="reject-btn" onClick={() => handleRejectGameInvite(g.email)}>Reject</button>
+                            <button className="accept-btn" onClick={() => handleAcceptGameInvite(g)}>Accept</button>
+                            <button className="reject-btn" onClick={() => handleRejectGameInvite(g)}>Reject</button>
                         </div>
                     </div>
                 ))}
@@ -210,9 +259,23 @@ function App() {
 
         {activeTab === 'home' && (
             <div className="tab-content">
-                <h2>Play Match</h2>
-                <div className="card glass-card">
-                    <h3>👥 Play with Friend</h3>
+                <h2>Game Hub</h2>
+                
+                <div className="game-selector-grid">
+                    {GAMES.map(g => (
+                        <div 
+                            key={g.id} 
+                            className={`game-card ${selectedGameType === g.id ? 'selected' : ''}`}
+                            onClick={() => setSelectedGameType(g.id)}
+                        >
+                            <h4>{g.name}</h4>
+                            <p>{g.desc}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="card glass-card mt-3">
+                    <h3>👥 Play {GAMES.find(g => g.id === selectedGameType)?.name} with Friend</h3>
                     {friends.length === 0 ? <p className="empty">Add friends to play live matches!</p> : null}
                     <div className="user-list">
                         {friends.map(f => (
@@ -227,17 +290,29 @@ function App() {
                     </div>
                 </div>
 
-                <div className="card glass-card">
-                    <h3>🤖 Bot Game Modes</h3>
-                    <div className="modes-grid">
-                        {botModes.map(m => (
-                            <div key={m.id} className="mode-card" onClick={() => startBotMode(m.id)}>
-                                <h4>{m.name}</h4>
-                                <p>{m.desc}</p>
-                            </div>
-                        ))}
+                {selectedGameType === 'handcricket' ? (
+                    <div className="card glass-card mt-3">
+                        <h3>🤖 Bot Game Modes (Hand Cricket)</h3>
+                        <div className="modes-grid">
+                            {botModes.map(m => (
+                                <div key={m.id} className="mode-card" onClick={() => startBotMode(m.id)}>
+                                    <h4>{m.name}</h4>
+                                    <p>{m.desc}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="card glass-card mt-3">
+                        <h3>🤖 Play against Bot</h3>
+                        <div className="modes-grid">
+                            <div className="mode-card" onClick={() => startBotMode('bot_standard')}>
+                                <h4>Play {GAMES.find(g => g.id === selectedGameType)?.name}</h4>
+                                <p>Challenge the AI Bot!</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         )}
 
@@ -338,7 +413,65 @@ function App() {
             </div>
         )}
 
+        {activeTab === 'about' && (
+            <div className="tab-content">
+                <h2>ℹ️ About & Instructions</h2>
+                <div className="card glass-card mb-3">
+                    <h3>🏏 Hand Cricket</h3>
+                    <p>Classic hand cricket multiplayer. Choose numbers 1-6.</p>
+                    <ul style={{textAlign: 'left'}}>
+                        <li>If both players choose the same number, the batter is <strong>OUT</strong>.</li>
+                        <li>Otherwise, the batter scores the number they chose.</li>
+                        <li>Try to chase the target!</li>
+                    </ul>
+                </div>
+                <div className="card glass-card mb-3">
+                    <h3>🔢 Hidden Number</h3>
+                    <p>Guess the secret number.</p>
+                    <ul style={{textAlign: 'left'}}>
+                        <li>Set a secret number between 0-99.</li>
+                        <li>Take turns guessing your opponent's number.</li>
+                        <li>Use hints: <strong>Higher</strong> or <strong>Lower</strong> to narrow it down.</li>
+                    </ul>
+                </div>
+                <div className="card glass-card mb-3">
+                    <h3>✌️ Rock Paper Scissors</h3>
+                    <p>Classic RPS tournament.</p>
+                    <ul style={{textAlign: 'left'}}>
+                        <li>Rock beats Scissors.</li>
+                        <li>Scissors beats Paper.</li>
+                        <li>Paper beats Rock.</li>
+                        <li>First to win 3 rounds wins the match!</li>
+                    </ul>
+                </div>
+                <div className="card glass-card mb-3">
+                    <h3>🎲 Even-Odd Battle</h3>
+                    <p>Even or Odd? Sum it up!</p>
+                    <ul style={{textAlign: 'left'}}>
+                        <li>Player 1 is ALWAYS <strong>Even</strong>. Player 2 is ALWAYS <strong>Odd</strong>.</li>
+                        <li>Both players pick a number from 1 to 6.</li>
+                        <li>If the sum is EVEN, Player 1 wins the round. If ODD, Player 2 wins.</li>
+                        <li>First to 3 wins!</li>
+                    </ul>
+                </div>
+                <div className="card glass-card mb-3">
+                    <h3>❌ Tic Tac Toe ⭕</h3>
+                    <p>Classic 3x3 grid game.</p>
+                    <ul style={{textAlign: 'left'}}>
+                        <li>Get 3 of your marks in a row (horizontal, vertical, or diagonal) to win.</li>
+                        <li>If the board fills up without a winner, it's a draw.</li>
+                    </ul>
+                </div>
+            </div>
+        )}
+
       </div>
+
+      <footer style={{ textAlign: 'center', padding: '20px', marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+          <p style={{ margin: 0, color: '#aaa', fontSize: '14px' }}>Created by:</p>
+          <p style={{ margin: 0, fontWeight: 'bold' }}>P. Ganesh Kumar</p>
+          <p style={{ margin: 0, fontSize: '14px' }}><a href="mailto:gk044996@gmail.com" style={{ color: '#29b6f6', textDecoration: 'none' }}>gk044996@gmail.com</a></p>
+      </footer>
     </div>
   );
 }

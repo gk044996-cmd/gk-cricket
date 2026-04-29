@@ -1,0 +1,164 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { getGame, playTicTacToe } from '../api';
+import './GameScreen.css';
+
+const TicTacToeGame = ({ gameId, userEmail, username, onExit }) => {
+    const [game, setGame] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [makingMove, setMakingMove] = useState(false);
+    const isPolling = useRef(true);
+
+    const loadGame = useCallback(async () => {
+        if (!isPolling.current) return;
+        try {
+            const data = await getGame(gameId);
+            setGame(data);
+            setLoading(false);
+        } catch (e) { console.error(e); }
+    }, [gameId]);
+
+    useEffect(() => {
+        loadGame();
+        const interval = setInterval(loadGame, 2000);
+        return () => clearInterval(interval);
+    }, [loadGame]);
+
+    useEffect(() => {
+        if (!game) return;
+        const isFinished = game.status === 'finished';
+        const isBotTurn = game.currentTurn === "Bot" && !isFinished;
+        
+        if (isBotTurn) {
+            console.log("Turn: bot");
+            console.log("Bot move triggered");
+            const timer = setTimeout(() => {
+                const gs = game.gameState || { board: Array(9).fill(null) };
+                const emptyCells = gs.board
+                  .map((val, idx) => val === null ? idx : null)
+                  .filter(val => val !== null);
+                
+                if (emptyCells.length > 0) {
+                    const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                    playTicTacToe({ gameId, userEmail: "Bot", move: randomIndex }).then(loadGame);
+                }
+            }, 700);
+            return () => clearTimeout(timer);
+        }
+    }, [game, gameId, loadGame]);
+
+    if (loading || !game) return <div className="game-loading">Loading Tic Tac Toe...</div>;
+
+    const amIP1 = game.player1 === userEmail;
+    const mySymbol = amIP1 ? "X" : "O";
+    const oppSymbol = amIP1 ? "O" : "X";
+    const gs = game.gameState || { board: Array(9).fill(null) };
+    const board = gs.board;
+
+    const opponentEmail = amIP1 ? game.player2 : game.player1;
+    const opponentName = opponentEmail.split('@')[0];
+    const isFinished = game.status === 'finished';
+    const isMyTurn = game.currentTurn === userEmail;
+
+    const handlePlay = async (index) => {
+        if (!isMyTurn || isFinished || board[index] || makingMove) return;
+        
+        setMakingMove(true);
+        // Optimistic Update
+        const newBoard = [...board];
+        newBoard[index] = mySymbol;
+        setGame(prev => ({
+            ...prev,
+            currentTurn: opponentEmail,
+            gameState: { ...prev.gameState, board: newBoard }
+        }));
+
+        try {
+            await playTicTacToe({ gameId, userEmail, move: index });
+            await loadGame();
+        } catch(e) {
+            console.error(e);
+        } finally {
+            setMakingMove(false);
+        }
+    };
+
+    const winPatterns = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+    ];
+    let winningIndices = [];
+    if (isFinished && game.winner && game.winner !== "Draw") {
+        const symbol = game.winner === game.player1 ? "X" : "O";
+        for (let pattern of winPatterns) {
+            const [a, b, c] = pattern;
+            if (board[a] === symbol && board[b] === symbol && board[c] === symbol) {
+                winningIndices = pattern;
+                break;
+            }
+        }
+    }
+
+    return (
+        <div className="game-screen glass-card">
+            <button className="exit-btn" onClick={onExit}>⬅ Leave Game</button>
+            <h2 className="vs-title">{username} <span className="vs-badge">VS</span> {opponentName}</h2>
+            <div className="mode-badge">TIC TAC TOE</div>
+
+            <div className="scoreboard mt-3 mb-4">
+                <div className={`score-card ${isMyTurn && !isFinished ? 'active-turn' : ''}`}>
+                    <h3>You ({mySymbol})</h3>
+                    {isMyTurn && !isFinished && <span className="batting-badge">Your Turn</span>}
+                </div>
+                <div className={`score-card ${!isMyTurn && !isFinished ? 'active-turn' : ''}`}>
+                    <h3>{opponentName} ({oppSymbol})</h3>
+                    {!isMyTurn && !isFinished && <span className="batting-badge">Waiting</span>}
+                </div>
+            </div>
+
+            <div className="ttt-board" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '10px',
+                maxWidth: '300px',
+                margin: '0 auto'
+            }}>
+                {board.map((cell, idx) => (
+                    <div 
+                        key={idx} 
+                        onClick={() => handlePlay(idx)}
+                        className={`${cell ? 'ttt-symbol' : ''} ${winningIndices.includes(idx) ? 'ttt-win-line' : ''}`}
+                        style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '2px solid rgba(255,255,255,0.3)',
+                            height: '90px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '48px',
+                            fontWeight: 'bold',
+                            cursor: (!cell && isMyTurn && !isFinished) ? 'pointer' : 'default',
+                            borderRadius: '10px',
+                            color: cell === 'X' ? '#ff8a00' : (cell === 'O' ? '#29b6f6' : '#fff'),
+                            transition: 'background 0.3s'
+                        }}
+                        onMouseEnter={e => { if(!cell && isMyTurn && !isFinished) e.target.style.background = 'rgba(255,255,255,0.2)'; }}
+                        onMouseLeave={e => { e.target.style.background = 'rgba(255,255,255,0.1)'; }}
+                    >
+                        {cell}
+                    </div>
+                ))}
+            </div>
+
+            {isFinished && (
+                <div className="winner-popup">
+                    <h2>Game Over!</h2>
+                    <p>Winner: <strong>{game.winner === userEmail ? "You! 🎉" : (game.winner === "Draw" ? "Draw 🤝" : `${opponentName} 😔`)}</strong></p>
+                    <button className="primary-btn mt-3" onClick={onExit}>Return to Dashboard</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default TicTacToeGame;

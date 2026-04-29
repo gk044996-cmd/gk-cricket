@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getGame, playLiveTurn, completeToss } from '../api';
+import { getGame, playLiveTurn } from '../api';
 import './GameScreen.css';
 
 const GameScreen = ({ gameId, userEmail, username, onExit }) => {
@@ -12,7 +12,6 @@ const GameScreen = ({ gameId, userEmail, username, onExit }) => {
     const [showBat, setShowBat] = useState(false);
     const [resultAnim, setResultAnim] = useState(null);
     const [lastMoveDisp, setLastMoveDisp] = useState(null);
-    const [tossAnimating, setTossAnimating] = useState(false);
 
     // Timer state
     const [timeLeft, setTimeLeft] = useState(5);
@@ -76,7 +75,23 @@ const GameScreen = ({ gameId, userEmail, username, onExit }) => {
     }, [loadGame]);
 
     const amIP1 = game?.player1 === userEmail;
+    const opponentEmail = amIP1 ? game?.player2 : game?.player1;
+    const isBot = opponentEmail === "Bot";
     const myMoveSelected = game ? (amIP1 ? game.p1Move !== null : game.p2Move !== null) : false;
+    const botMoveSelected = game ? (amIP1 ? game.p2Move !== null : game.p1Move !== null) : false;
+
+    useEffect(() => {
+        if (!game || !isBot || game.status !== 'playing' || animating) return;
+        if (!botMoveSelected) {
+            console.log("Turn: bot");
+            console.log("Bot move triggered");
+            const timer = setTimeout(() => {
+                const botNumber = Math.floor(Math.random() * 6) + 1;
+                playLiveTurn({ gameId, userEmail: "Bot", move: botNumber }).then(loadGame);
+            }, 800);
+            return () => clearTimeout(timer);
+        }
+    }, [game, isBot, botMoveSelected, animating, gameId, loadGame]);
 
     const handlePlay = useCallback(async (move) => {
         if (!game || game.status === "finished" || animating) return;
@@ -108,56 +123,11 @@ const GameScreen = ({ gameId, userEmail, username, onExit }) => {
         }
     }, [game, animating, myMoveSelected, handlePlay]);
 
-    const handleToss = async (choice) => {
-        // Player 1 handles toss
-        setTossAnimating(true);
-        setTimeout(async () => {
-            const isP1Winner = Math.random() > 0.5;
-            const tossWinner = isP1Winner ? game.player1 : game.player2;
-            let tossChoice = choice;
-            
-            if (!isP1Winner) {
-                tossChoice = Math.random() > 0.5 ? 'bat' : 'bowl'; // opponent random choice
-            }
-
-            await completeToss({ gameId, tossWinner, tossChoice });
-            setTossAnimating(false);
-            loadGame();
-        }, 2000);
-    };
-
     if (loading || !game) return <div className="game-loading">Loading Match...</div>;
 
     const isFinished = game.status === "finished";
     const myName = username;
-    const opponentEmail = amIP1 ? game.player2 : game.player1;
     const opponentName = opponentEmail === 'Bot' ? 'Bot 🤖' : opponentEmail.split('@')[0];
-
-    // TOSS SCREEN
-    if (game.status === "toss") {
-        return (
-            <div className="game-screen glass-card">
-                <h2>🎲 Match Toss</h2>
-                <div className="toss-area">
-                    {tossAnimating ? (
-                        <div className="coin-flip-anim">🪙</div>
-                    ) : (
-                        amIP1 ? (
-                            <div className="toss-controls">
-                                <p>You are Player 1! Choose what you want if you win the toss:</p>
-                                <button className="primary-btn m-2" onClick={() => handleToss('bat')}>Bat 🏏</button>
-                                <button className="primary-btn m-2" onClick={() => handleToss('bowl')}>Bowl 🎯</button>
-                            </div>
-                        ) : (
-                            <div className="toss-controls">
-                                <p>Waiting for {opponentName} to flip the coin... ⏳</p>
-                            </div>
-                        )
-                    )}
-                </div>
-            </div>
-        );
-    }
 
     const myScore = amIP1 ? game.score1 : game.score2;
     const opponentScore = amIP1 ? game.score2 : game.score1;

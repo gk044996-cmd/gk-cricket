@@ -31,11 +31,11 @@ const userSchema = new mongoose.Schema(
                 ref: "User",
             },
         ],
-        gameRequests: [
+        gameInvites: [
             {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "User",
-            },
+                requester: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+                gameType: { type: String, default: "handcricket" }
+            }
         ],
         isOnline: {
             type: Boolean,

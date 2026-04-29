@@ -343,6 +343,47 @@ button:active {
 
 .edit-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; padding: 0; margin-left: 10px; }
 
+/* GAME MENU */
+.game-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.game-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.game-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.game-card.selected {
+    background: rgba(30, 215, 96, 0.2);
+    border-color: #1ed760;
+    box-shadow: 0 0 15px rgba(30, 215, 96, 0.4);
+}
+
+.game-card h4 {
+    margin: 0 0 5px 0;
+    font-size: 14px;
+    color: #fff;
+}
+
+.game-card p {
+    margin: 0;
+    font-size: 11px;
+    color: #ccc;
+}
+
 /* MOBILE RESPONSIVE */
 @media (max-width: 600px) {
   .navbar {
@@ -369,3 +410,82 @@ button:active {
   }
   .reject-btn { margin-left: 0; }
 }
+
+/* =============================
+   GAME-SPECIFIC ANIMATIONS
+============================= */
+
+/* Hand Cricket */
+@keyframes ballSpin {
+  0% { transform: rotate(0deg) scale(0.5); opacity: 0; }
+  50% { transform: rotate(180deg) scale(1.2); opacity: 1; }
+  100% { transform: rotate(360deg) scale(1); opacity: 1; }
+}
+.anim-ball { animation: ballSpin 0.5s ease-out; display: inline-block; }
+
+@keyframes batSwing {
+  0% { transform: rotate(0deg); transform-origin: bottom right; }
+  50% { transform: rotate(-45deg); transform-origin: bottom right; }
+  100% { transform: rotate(0deg); transform-origin: bottom right; }
+}
+.anim-bat { animation: batSwing 0.5s ease-in-out; display: inline-block; }
+
+@keyframes outExplosion {
+  0% { transform: scale(1); opacity: 1; text-shadow: 0 0 10px red; }
+  50% { transform: scale(1.5); opacity: 0.8; text-shadow: 0 0 40px red; }
+  100% { transform: scale(1); opacity: 1; text-shadow: 0 0 10px red; }
+}
+.anim-out { animation: outExplosion 0.5s ease-out; color: #f44336; font-weight: bold; }
+
+/* Hidden Number */
+@keyframes dialPress {
+  0% { transform: scale(1); background: rgba(255,255,255,0.2); }
+  50% { transform: scale(0.9); background: rgba(255,255,255,0.4); }
+  100% { transform: scale(1); background: rgba(255,255,255,0.2); }
+}
+.dial-pad button:active { animation: dialPress 0.1s; }
+
+@keyframes guessReveal {
+  0% { opacity: 0; transform: translateY(-10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.anim-guess-reveal { animation: guessReveal 0.4s ease-out; }
+
+/* RPS */
+@keyframes countdownAnim {
+  0% { transform: scale(2); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+.anim-countdown { animation: countdownAnim 1s ease-in-out; font-size: 60px; font-weight: bold; color: #ffd700; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+
+@keyframes handShake {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-10deg) translateY(-5px); }
+  75% { transform: rotate(10deg) translateY(5px); }
+}
+.anim-hand { animation: handShake 0.4s infinite alternate; font-size: 50px; display: inline-block; }
+
+/* Even-Odd */
+@keyframes diceRoll {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(1.2); }
+  50% { transform: rotate(180deg) scale(0.8); }
+  75% { transform: rotate(270deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.anim-dice { animation: diceRoll 0.5s ease-out; display: inline-block; font-size: 40px; }
+
+/* Tic Tac Toe */
+@keyframes drawSymbol {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.ttt-symbol { animation: drawSymbol 0.3s ease-out; }
+
+@keyframes winGlow {
+  0% { box-shadow: 0 0 5px #ffd700; background: rgba(255, 215, 0, 0.2); }
+  50% { box-shadow: 0 0 20px #ffd700; background: rgba(255, 215, 0, 0.5); }
+  100% { box-shadow: 0 0 5px #ffd700; background: rgba(255, 215, 0, 0.2); }
+}
+.ttt-win-line { animation: winGlow 1.5s infinite; border-color: #ffd700 !important; }

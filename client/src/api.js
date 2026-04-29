@@ -183,6 +183,83 @@ export const playLiveTurn = async (data) => {
     return res.json();
 };
 
+export const playHiddenNumber = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-hidden-number`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const playRPS = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-rps`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const playEvenOdd = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-even-odd`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const playTicTacToe = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-tictactoe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const leaveGame = async (data) => {
+    const res = await fetch(`${BASE_URL}/leave-game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const getActiveGame = async (email) => {
+    const res = await fetch(`${BASE_URL}/active-game/${email}`);
+    return res.json();
+};
+
+export const selectTossChoice = async (data) => {
+    const res = await fetch(`${BASE_URL}/select-toss-choice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const flipCoin = async (data) => {
+    const res = await fetch(`${BASE_URL}/flip-coin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const selectBatBowl = async (data) => {
+    const res = await fetch(`${BASE_URL}/select-bat-bowl`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
 export const getHistory = async (email) => {
     const res = await fetch(`${BASE_URL}/history/${email}`);
     return res.json();
