@@ -123,6 +123,16 @@ const GameScreen = ({ gameId, userEmail, username, onExit }) => {
         }
     }, [game, animating, myMoveSelected, handlePlay]);
 
+    // Auto redirect when finished
+    useEffect(() => {
+        if (game?.status === "finished" && !animating) {
+            const timer = setTimeout(() => {
+                onExit(true); // Pass true to indicate natural finish
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [game?.status, animating, onExit]);
+
     if (loading || !game) return <div className="game-loading">Loading Match...</div>;
 
     const isFinished = game.status === "finished";

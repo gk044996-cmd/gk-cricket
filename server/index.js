@@ -248,7 +248,7 @@ app.post("/leave-game", async (req, res) => {
         if(!game || game.status === "finished") return res.status(200).json("Already finished");
         game.status = "finished";
         game.winner = game.player1 === userEmail ? game.player2 : game.player1;
-        game.howOut = "Forfeit";
+        game.howOut = "Abandoned";
         await game.save();
 
         const p1Name = game.player1 === "Bot" ? "Bot" : await User.findOne({ email: game.player1 }).then(u => u.username);
@@ -262,7 +262,7 @@ app.post("/leave-game", async (req, res) => {
             score1: game.score1 || 0,
             score2: game.score2 || 0,
             winner: game.winner === game.player1 ? p1Name : p2Name,
-            howOut: "Forfeit"
+            howOut: "Abandoned"
         });
         await h.save();
 

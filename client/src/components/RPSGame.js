@@ -5,9 +5,11 @@ import './GameScreen.css';
 const RPSGame = ({ gameId, userEmail, username, onExit }) => {
     const [game, setGame] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [countdown, setCountdown] = useState(0);
-    const [localMove, setLocalMove] = useState(null);
+    const [animatingRound, setAnimatingRound] = useState(null);
+    const [shuffleEmoji, setShuffleEmoji] = useState('✊');
+    const [showResult, setShowResult] = useState(null);
     const isPolling = useRef(true);
+    const prevRoundsCount = useRef(0);
 
     const loadGame = useCallback(async () => {
         if (!isPolling.current) return;
@@ -46,6 +48,43 @@ const RPSGame = ({ gameId, userEmail, username, onExit }) => {
         }
     }, [game, gameId, userEmail, loadGame]);
 
+    useEffect(() => {
+        if (!game) return;
+        const gs = game.gameState || { rounds: [] };
+        if (gs.rounds.length > prevRoundsCount.current) {
+            const newRound = gs.rounds[gs.rounds.length - 1];
+            prevRoundsCount.current = gs.rounds.length;
+            
+            setAnimatingRound(newRound);
+            setShowResult(null);
+
+            let emojis = ['✊', '✋', '✌️'];
+            let i = 0;
+            const interval = setInterval(() => {
+                setShuffleEmoji(emojis[i % 3]);
+                i++;
+            }, 100);
+
+            setTimeout(() => {
+                clearInterval(interval);
+                setShowResult(newRound);
+                setTimeout(() => {
+                    setAnimatingRound(null);
+                    setShowResult(null);
+                }, 2000);
+            }, 2000);
+        }
+    }, [game]);
+
+    useEffect(() => {
+        if (game?.status === "finished") {
+            const timer = setTimeout(() => {
+                onExit(true);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [game?.status, onExit]);
+
     if (loading || !game) return <div className="game-loading">Loading RPS...</div>;
 
     const amIP1 = game.player1 === userEmail;
@@ -58,22 +97,12 @@ const RPSGame = ({ gameId, userEmail, username, onExit }) => {
     const myMove = amIP1 ? game.p1Move : game.p2Move;
 
     const handlePlay = async (move) => {
-        if (myMove || localMove || isFinished) return;
-        setLocalMove(move);
-        setCountdown(3);
-        let count = 3;
-        const timer = setInterval(() => {
-            count--;
-            setCountdown(count);
-            if(count === 0) {
-                clearInterval(timer);
-                playRPS({ gameId, userEmail, move }).then(() => {
-                    setLocalMove(null);
-                    loadGame();
-                });
-            }
-        }, 800);
+        if (myMove || isFinished || animatingRound) return;
+        await playRPS({ gameId, userEmail, move });
+        loadGame();
     };
+
+    const getEmoji = (m) => m === 'rock' ? '✊' : m === 'paper' ? '✋' : '✌️';
 
     return (
         <div className="game-screen glass-card">
@@ -81,24 +110,42 @@ const RPSGame = ({ gameId, userEmail, username, onExit }) => {
             <h2 className="vs-title">{username} <span className="vs-badge">VS</span> {opponentName}</h2>
             <div className="mode-badge">ROCK PAPER SCISSORS (Best of 5)</div>
 
-            {countdown > 0 && (
-                <div className="anim-countdown">{countdown}</div>
-            )}
-
             <div className="scoreboard">
                 <div className="score-card">
                     <h3>You</h3>
-                    <p className="score">{myWins}</p>
+                    <p className="score">{animatingRound && !showResult && myWins > 0 && animatingRound.winner === userEmail ? myWins - 1 : myWins}</p>
                 </div>
                 <div className="score-card">
                     <h3>{opponentName}</h3>
-                    <p className="score">{oppWins}</p>
+                    <p className="score">{animatingRound && !showResult && oppWins > 0 && animatingRound.winner !== userEmail && animatingRound.winner !== "Draw" ? oppWins - 1 : oppWins}</p>
                 </div>
             </div>
 
-            {!isFinished && (
+            {animatingRound && (
+                <div className="action-area text-center mt-4 glass-card" style={{ padding: '20px', background: 'rgba(255,255,255,0.1)' }}>
+                    <h3 className="mb-3 text-warning">Rock, Paper, Scissors...</h3>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', fontSize: '60px' }}>
+                        <div className="player-anim-box">
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>You</div>
+                            <div className={showResult ? "bounce-in" : ""}>{showResult ? getEmoji(amIP1 ? animatingRound.p1Move : animatingRound.p2Move) : shuffleEmoji}</div>
+                        </div>
+                        <div style={{ alignSelf: 'center', fontSize: '30px', fontWeight: 'bold' }}>VS</div>
+                        <div className="player-anim-box">
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{opponentName}</div>
+                            <div className={showResult ? "bounce-in" : ""}>{showResult ? getEmoji(amIP1 ? animatingRound.p2Move : animatingRound.p1Move) : shuffleEmoji}</div>
+                        </div>
+                    </div>
+                    {showResult && (
+                        <h2 className="mt-3 text-success bounce-in" style={{ fontSize: '32px' }}>
+                            {showResult.winner === "Draw" ? "It's a Draw!" : showResult.winner === userEmail ? "You Won!" : `${opponentName} Won!`}
+                        </h2>
+                    )}
+                </div>
+            )}
+
+            {!isFinished && !animatingRound && (
                 <div className="action-area text-center mt-4">
-                    {myMove || localMove ? (
+                    {myMove ? (
                         <p className="waiting-text">⏳ Waiting for {opponentName} to choose...</p>
                     ) : (
                         <div>
@@ -116,11 +163,10 @@ const RPSGame = ({ gameId, userEmail, username, onExit }) => {
             <div className="mt-4">
                 <h4 className="text-center">Rounds History</h4>
                 <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {gs.rounds.map((r, i) => {
+                    {gs.rounds.filter((r) => r !== animatingRound).map((r, i) => {
                         const m1 = amIP1 ? r.p1Move : r.p2Move;
                         const m2 = amIP1 ? r.p2Move : r.p1Move;
                         const resultText = r.winner === "Draw" ? "Draw" : (r.winner === userEmail ? "You won!" : "Opponent won");
-                        const getEmoji = (m) => m === 'rock' ? '✊' : m === 'paper' ? '✋' : '✌️';
                         return (
                             <li key={i} style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', marginBottom: '8px', textAlign: 'center' }}>
                                 Round {i+1}: You (<span className="anim-hand">{getEmoji(m1)}</span>) vs {opponentName} (<span className="anim-hand">{getEmoji(m2)}</span>) ➔ {resultText}

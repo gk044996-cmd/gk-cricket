@@ -43,6 +43,15 @@ const EvenOddGame = ({ gameId, userEmail, username, onExit }) => {
         }
     }, [game, gameId, userEmail, loadGame]);
 
+    useEffect(() => {
+        if (game?.status === "finished") {
+            const timer = setTimeout(() => {
+                onExit(true);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [game?.status, onExit]);
+
     if (loading || !game) return <div className="game-loading">Loading Even-Odd...</div>;
 
     const amIP1 = game.player1 === userEmail;

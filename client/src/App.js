@@ -162,10 +162,14 @@ function App() {
     await rejectGameInvite({ userEmail: user, requesterEmail: invite.email, gameType: invite.gameType });
   };
 
-  const handleExitGame = async (gameId) => {
-      if(window.confirm("Are you sure you want to leave? This will count as a forfeit.")) {
-          await leaveGame({ gameId, userEmail: user });
+  const handleExitGame = async (gameId, isFinishedNormal) => {
+      if (isFinishedNormal) {
           setCurrentGame(null);
+      } else {
+          if(window.confirm("Are you sure you want to leave? This match will be ABANDONED.")) {
+              await leaveGame({ gameId, userEmail: user });
+              setCurrentGame(null);
+          }
       }
   };
 
@@ -182,7 +186,7 @@ function App() {
       <div className="container center-container">
         {notification && <div className="notification-popup">{notification}</div>}
         <div className="card auth glass-card">
-          <h1>🏏 Live Cricket</h1>
+          <h1>🎮 Live Games</h1>
           <h2>{isLogin ? "Login" : "Register"}</h2>
           {!isLogin && <input name="username" placeholder="Username" onChange={handleChange} />}
           <input name="email" placeholder="Email" onChange={handleChange} />
@@ -231,7 +235,7 @@ function App() {
       {notification && <div className="notification-popup">{notification}</div>}
       
       <nav className="navbar">
-        <div className="nav-logo">🏏 Live Cricket</div>
+        <div className="nav-logo">🎮 Live Games</div>
         <div className="nav-links">
           <button className={activeTab === 'home' ? 'active' : ''} onClick={() => setActiveTab('home')}>🏠 Home</button>
           <button className={activeTab === 'friends' ? 'active' : ''} onClick={() => setActiveTab('friends')}>👥 Friends</button>
@@ -390,7 +394,7 @@ function App() {
                                 <p className="history-result">
                                     <strong>{resultStatus}</strong> ({h.score1} vs {h.score2})
                                 </p>
-                                <p className="history-details">How Out: {h.howOut} • {new Date(h.date).toLocaleDateString()}</p>
+                                <p className="history-details">How Out: {h.howOut === "Abandoned" ? <span style={{color: '#ffeb3b', fontWeight: 'bold', background: 'rgba(255,235,59,0.2)', padding: '2px 6px', borderRadius: '4px'}}>ABANDONED</span> : h.howOut} • {new Date(h.date).toLocaleDateString()}</p>
                             </div>
                         )
                     })}
