@@ -174,6 +174,7 @@ button:active {
 }
 
 .online { background: #00e676; box-shadow: 0 0 8px #00e676; }
+.playing { background: #f44336; box-shadow: 0 0 8px #f44336; }
 .offline { background: #9e9e9e; }
 
 .user-name {

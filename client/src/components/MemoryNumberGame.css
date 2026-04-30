@@ -1,0 +1,148 @@
+.seq-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.info-panel {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 400px;
+    background: rgba(0,0,0,0.5);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #444;
+}
+
+.target-num, .attempts {
+    font-size: 18px;
+    color: #ccc;
+}
+
+.target-num span {
+    font-size: 24px;
+    font-weight: bold;
+    color: #29b6f6;
+}
+
+.attempts span {
+    font-size: 24px;
+    font-weight: bold;
+    color: #f44336;
+}
+
+.players-status-hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.p-status {
+    padding: 5px 15px;
+    background: #333;
+    border-radius: 20px;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.p-status.active {
+    background: #29b6f6;
+    color: black;
+    font-weight: bold;
+}
+
+.p-status.lost {
+    background: #f44336;
+    color: white;
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+.number-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    background: #1e1e1e;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.num-box {
+    width: 80px;
+    height: 80px;
+    perspective: 1000px;
+}
+
+@media(min-width: 768px) {
+    .num-box {
+        width: 100px;
+        height: 100px;
+    }
+}
+
+.num-box.clickable {
+    cursor: pointer;
+}
+
+.num-box.clickable:hover .num-front {
+    background: #444;
+    box-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+.num-inner {
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+    position: relative;
+}
+
+.num-box.revealed .num-inner {
+    transform: rotateY(180deg);
+}
+
+.num-front, .num-back {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    backface-visibility: hidden;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 32px;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.num-front {
+    background: #333;
+    color: white;
+    border: 2px solid #555;
+    transition: all 0.3s;
+}
+
+.num-back {
+    background: #4caf50;
+    color: white;
+    transform: rotateY(180deg);
+    border: 2px solid #81c784;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+.shake-error {
+    animation: shakeBoard 0.5s;
+}
+
+@keyframes shakeBoard {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-15px); }
+    50% { transform: translateX(15px); }
+    75% { transform: translateX(-15px); }
+    100% { transform: translateX(0); }
+}

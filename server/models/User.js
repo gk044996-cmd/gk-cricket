@@ -34,7 +34,8 @@ const userSchema = new mongoose.Schema(
         gameInvites: [
             {
                 requester: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-                gameType: { type: String, default: "handcricket" }
+                gameType: { type: String, default: "handcricket" },
+                gameId: { type: mongoose.Schema.Types.ObjectId, ref: "Game", default: null }
             }
         ],
         isOnline: {

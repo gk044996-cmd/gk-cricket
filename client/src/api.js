@@ -1,4 +1,4 @@
-const BASE_URL = "https://gk-cricket.onrender.com";
+const BASE_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : "https://gk-cricket.onrender.com";
 
 // 🔐 AUTH
 export const registerUser = async (data) => {
@@ -262,6 +262,87 @@ export const selectBatBowl = async (data) => {
 
 export const getHistory = async (email) => {
     const res = await fetch(`${BASE_URL}/history/${email}`);
+    return res.json();
+};
+
+export const requestRematch = async (data) => {
+    const res = await fetch(`${BASE_URL}/request-rematch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const acceptRematch = async (data) => {
+    const res = await fetch(`${BASE_URL}/accept-rematch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const declineRematch = async (data) => {
+    const res = await fetch(`${BASE_URL}/decline-rematch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const sendMultiplayerInvites = async (data) => {
+    const res = await fetch(`${BASE_URL}/send-multiplayer-invites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const playSnakeLadders = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-snake-ladders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const playLudo = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-ludo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const playMemoryFlip = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-memory-flip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const endMemoryFlipTurn = async (data) => {
+    const res = await fetch(`${BASE_URL}/end-memory-flip-turn`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const playMemoryNumber = async (data) => {
+    const res = await fetch(`${BASE_URL}/play-memory-number`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
     return res.json();
 };
 

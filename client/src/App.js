@@ -4,7 +4,7 @@ import {
   registerUser, loginUser, logoutUser, heartbeat, getAllUsers,
   sendRequest, acceptRequest, getFriends, getRequests, removeFriend,
   sendGameInvite, acceptGameInvite, rejectGameInvite, getGameInvites,
-  startGame, updateProfile, getHistory, getActiveGame, leaveGame
+  startGame, updateProfile, getHistory, getActiveGame, leaveGame, sendMultiplayerInvites
 } from "./api";
 import GameScreen from "./components/GameScreen";
 import HiddenNumberGame from "./components/HiddenNumberGame";
@@ -12,6 +12,10 @@ import RPSGame from "./components/RPSGame";
 import EvenOddGame from "./components/EvenOddGame";
 import TicTacToeGame from "./components/TicTacToeGame";
 import TossScreen from "./components/TossScreen";
+import SnakeLaddersGame from "./components/SnakeLaddersGame";
+import LudoGame from "./components/LudoGame";
+import MemoryFlipGame from "./components/MemoryFlipGame";
+import MemoryNumberGame from "./components/MemoryNumberGame";
 
 const GAMES = [
     { id: 'handcricket', name: '🏏 Hand Cricket', desc: 'Classic hand cricket multiplayer' },
@@ -19,6 +23,10 @@ const GAMES = [
     { id: 'rps', name: '✌️ Rock Paper Scissors', desc: 'Classic RPS, best of 3' },
     { id: 'evenodd', name: '🎲 Even-Odd', desc: 'Even or Odd? Sum it up!' },
     { id: 'tictactoe', name: '❌ Tic Tac Toe ⭕', desc: 'Classic 3x3 grid game' },
+    { id: 'snake-ladders', name: '🐍 Snake & Ladders', desc: 'Classic board game (2-4 players)' },
+    { id: 'ludo', name: '🎲 Ludo', desc: 'Classic Ludo (2-4 players)' },
+    { id: 'memory-flip', name: '🃏 Memory Flip', desc: 'Match pairs of cards' },
+    { id: 'memory-number', name: '🔢 Memory Number', desc: 'Remember and click numbers 1-9' },
 ];
 
 function App() {
@@ -36,6 +44,8 @@ function App() {
   const [history, setHistory] = useState([]);
   const [currentGame, setCurrentGame] = useState(null); // { id, type }
   const [selectedGameType, setSelectedGameType] = useState('handcricket');
+  const [multiplayerCount, setMultiplayerCount] = useState(2);
+  const [selectedFriends, setSelectedFriends] = useState([]);
 
   const [notification, setNotification] = useState(null);
 
@@ -66,6 +76,10 @@ function App() {
         localStorage.setItem("userName", res.username);
       } else showNotification(res);
     } else {
+      if (!form.email || !form.email.endsWith("@gmail.com")) {
+        showNotification("Email must end with @gmail.com");
+        return;
+      }
       const res = await registerUser(form);
       if(res.username) {
          showNotification("Registered! Please login.");
@@ -166,17 +180,31 @@ function App() {
       if (isFinishedNormal) {
           setCurrentGame(null);
       } else {
-          if(window.confirm("Are you sure you want to leave? This match will be ABANDONED.")) {
+          if(window.confirm("Are you sure you want to leave? This match will be abandoned")) {
               await leaveGame({ gameId, userEmail: user });
               setCurrentGame(null);
           }
       }
   };
 
-  const startBotMode = async (mode) => {
-      const res = await startGame({ player1: user, player2: "Bot", mode, gameType: selectedGameType });
+  const handlePlayAgainBot = async (mode, gameType) => {
+      const payload = { player1: user, player2: "Bot", mode, gameType };
+      if (['snake-ladders', 'ludo'].includes(gameType)) {
+          payload.playerCount = multiplayerCount;
+      }
+      const res = await startGame(payload);
       if(res.gameId) {
-          // Hand cricket goes to Toss, others go straight to playing
+          setCurrentGame({ id: res.gameId, type: gameType, status: gameType === 'handcricket' ? 'toss' : 'playing' });
+      }
+  };
+
+  const startBotMode = async (mode) => {
+      const payload = { player1: user, player2: "Bot", mode, gameType: selectedGameType };
+      if (['snake-ladders', 'ludo'].includes(selectedGameType)) {
+          payload.playerCount = multiplayerCount;
+      }
+      const res = await startGame(payload);
+      if(res.gameId) {
           setCurrentGame({ id: res.gameId, type: selectedGameType, status: selectedGameType === 'handcricket' ? 'toss' : 'playing' });
       }
   };
@@ -202,20 +230,28 @@ function App() {
 
   if (currentGame) {
     if (currentGame.type === 'handcricket' && currentGame.status === 'toss') {
-        return <TossScreen gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} onTossComplete={() => setCurrentGame({ ...currentGame, status: 'playing' })} />;
+        return <TossScreen gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onTossComplete={() => setCurrentGame({ ...currentGame, status: 'playing' })} />;
     }
     
     if (currentGame.type === 'hidden-number') {
-        return <HiddenNumberGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+        return <HiddenNumberGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
     } else if (currentGame.type === 'rps') {
-        return <RPSGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+        return <RPSGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
     } else if (currentGame.type === 'evenodd') {
-        return <EvenOddGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+        return <EvenOddGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
     } else if (currentGame.type === 'tictactoe') {
-        return <TicTacToeGame gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+        return <TicTacToeGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+    } else if (currentGame.type === 'snake-ladders') {
+        return <SnakeLaddersGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+    } else if (currentGame.type === 'ludo') {
+        return <LudoGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+    } else if (currentGame.type === 'memory-flip') {
+        return <MemoryFlipGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+    } else if (currentGame.type === 'memory-number') {
+        return <MemoryNumberGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
     }
     // Default to hand cricket
-    return <GameScreen gameId={currentGame.id} userEmail={user} username={username} onExit={() => handleExitGame(currentGame.id)} />;
+    return <GameScreen gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
   }
 
   const botModes = [
@@ -280,18 +316,79 @@ function App() {
 
                 <div className="card glass-card mt-3">
                     <h3>👥 Play {GAMES.find(g => g.id === selectedGameType)?.name} with Friend</h3>
+                    {['snake-ladders', 'ludo'].includes(selectedGameType) && (
+                        <div style={{marginBottom: '15px'}}>
+                            <label>Select Players: </label>
+                            <select value={multiplayerCount} onChange={(e) => {
+                                setMultiplayerCount(Number(e.target.value));
+                                setSelectedFriends([]);
+                            }} style={{padding: '5px', marginLeft: '10px', borderRadius: '5px'}}>
+                                <option value={2}>2 Players</option>
+                                <option value={3}>3 Players</option>
+                                <option value={4}>4 Players</option>
+                            </select>
+                        </div>
+                    )}
                     {friends.length === 0 ? <p className="empty">Add friends to play live matches!</p> : null}
                     <div className="user-list">
-                        {friends.map(f => (
-                            <div className="user-card" key={f._id}>
-                                <div className="user-info">
-                                    <span className={`status-dot ${f.isOnline ? 'online' : 'offline'}`}></span>
-                                    <span className="user-name">{f.username}</span>
+                        {friends.map(f => {
+                            const isSelected = selectedFriends.includes(f.email);
+                            const canSelectMore = selectedFriends.length < multiplayerCount - 1;
+                            const isMulti = ['snake-ladders', 'ludo'].includes(selectedGameType) && multiplayerCount > 2;
+
+                            return (
+                                <div className={`user-card ${isSelected ? 'selected' : ''}`} key={f._id} style={{border: isSelected ? '2px solid #29b6f6' : ''}}>
+                                    <div className="user-info">
+                                        <span className={`status-dot ${f.isPlaying ? 'playing' : (f.isOnline ? 'online' : 'offline')}`}></span>
+                                        <span className="user-name">{f.username} {f.isPlaying ? `(Playing ${GAMES.find(g => g.id === f.playingGame)?.name || 'Game'})` : ""}</span>
+                                    </div>
+                                    {isMulti ? (
+                                        <button 
+                                            className={isSelected ? "reject-btn" : "accept-btn"} 
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    setSelectedFriends(prev => prev.filter(email => email !== f.email));
+                                                } else if (canSelectMore) {
+                                                    setSelectedFriends(prev => [...prev, f.email]);
+                                                } else {
+                                                    showNotification(`You can only select ${multiplayerCount - 1} friend(s) for a ${multiplayerCount}-player game.`);
+                                                }
+                                            }}
+                                            disabled={f.isPlaying || !f.isOnline}
+                                            style={{ opacity: (f.isPlaying || !f.isOnline) ? 0.5 : 1, cursor: (f.isPlaying || !f.isOnline) ? 'not-allowed' : 'pointer' }}
+                                        >
+                                            {isSelected ? "Deselect" : "Select"}
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            className="invite-btn" 
+                                            onClick={() => handleSendGameInvite(f.email)}
+                                            disabled={f.isPlaying || !f.isOnline}
+                                            style={{ opacity: (f.isPlaying || !f.isOnline) ? 0.5 : 1, cursor: (f.isPlaying || !f.isOnline) ? 'not-allowed' : 'pointer' }}
+                                        >
+                                            🎮 Invite
+                                        </button>
+                                    )}
                                 </div>
-                                <button className="invite-btn" onClick={() => handleSendGameInvite(f.email)}>🎮 Invite to Play</button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
+                    {['snake-ladders', 'ludo'].includes(selectedGameType) && multiplayerCount > 2 && selectedFriends.length > 0 && (
+                        <button 
+                            className="primary-btn mt-3" 
+                            onClick={async () => {
+                                if (selectedFriends.length !== multiplayerCount - 1) {
+                                    showNotification(`Please select exactly ${multiplayerCount - 1} friend(s).`);
+                                    return;
+                                }
+                                await sendMultiplayerInvites({ fromEmail: user, toEmails: selectedFriends, gameType: selectedGameType });
+                                showNotification(`Game invite sent to ${selectedFriends.length} friends!`);
+                                setSelectedFriends([]);
+                            }}
+                        >
+                            Send Multiplayer Invite ({selectedFriends.length}/{multiplayerCount - 1})
+                        </button>
+                    )}
                 </div>
 
                 {selectedGameType === 'handcricket' ? (
@@ -344,8 +441,8 @@ function App() {
                         {friends.map(f => (
                             <div className="user-card" key={f._id}>
                                 <div className="user-info">
-                                    <span className={`status-dot ${f.isOnline ? 'online' : 'offline'}`}></span>
-                                    <span className="user-name">{f.username}</span>
+                                    <span className={`status-dot ${f.isPlaying ? 'playing' : (f.isOnline ? 'online' : 'offline')}`}></span>
+                                    <span className="user-name">{f.username} {f.isPlaying ? `(Playing ${GAMES.find(g => g.id === f.playingGame)?.name || 'Game'})` : ""}</span>
                                 </div>
                                 <button className="reject-btn" onClick={() => handleRemoveFriend(f.email)}>❌ Remove</button>
                             </div>
@@ -359,8 +456,8 @@ function App() {
                         {allUsers.filter(u => !friends.find(f => f.email === u.email)).map(u => (
                             <div className="user-card" key={u._id}>
                                 <div className="user-info">
-                                    <span className={`status-dot ${u.isOnline ? 'online' : 'offline'}`}></span>
-                                    <span className="user-name">{u.username}</span>
+                                    <span className={`status-dot ${u.isPlaying ? 'playing' : (u.isOnline ? 'online' : 'offline')}`}></span>
+                                    <span className="user-name">{u.username} {u.isPlaying ? `(Playing ${GAMES.find(g => g.id === u.playingGame)?.name || 'Game'})` : ""}</span>
                                 </div>
                                 {requests.find(r => r.email === u.email) ? (
                                     <span className="pending-text">Request Pending</span>
@@ -384,17 +481,34 @@ function App() {
                         const isDraw = h.winner === "Draw";
                         const resultStatus = isDraw ? "DRAW 🤝" : iWon ? "WON 🏆" : "LOST ❌";
                         const resultClass = isDraw ? "draw" : iWon ? "won" : "lost";
-                        
+                        const isAbandoned = h.howOut && h.howOut.startsWith("Abandoned");
+                        let abandonText = "ABANDONED";
+                        if (isAbandoned) {
+                            const parts = h.howOut.split(":");
+                            if (parts.length > 1) {
+                                const leaverEmail = parts[1];
+                                if (leaverEmail === user) {
+                                    abandonText = "You left";
+                                } else {
+                                    const opponentName = h.player1 === username ? h.player2 : h.player1;
+                                    abandonText = opponentName === "Bot" ? "Bot left" : `${opponentName} left`;
+                                }
+                            }
+                        }
+
                         return (
                             <div key={h._id} className={`history-card ${resultClass}`}>
                                 <div className="history-header">
                                     <h4>{h.player1} vs {h.player2}</h4>
-                                    <span className="history-mode">{h.mode}</span>
+                                    <span className="history-mode">
+                                        {GAMES.find(g => g.id === (h.gameType || 'handcricket'))?.name || "Game"}
+                                        {h.mode && h.mode !== "friend" ? ` - ${botModes.find(m => m.id === h.mode)?.name || h.mode}` : ""}
+                                    </span>
                                 </div>
                                 <p className="history-result">
-                                    <strong>{resultStatus}</strong> ({h.score1} vs {h.score2})
+                                    <strong>{resultStatus}</strong> {(h.gameType !== 'tictactoe') && `(${h.score1} vs ${h.score2})`}
                                 </p>
-                                <p className="history-details">How Out: {h.howOut === "Abandoned" ? <span style={{color: '#ffeb3b', fontWeight: 'bold', background: 'rgba(255,235,59,0.2)', padding: '2px 6px', borderRadius: '4px'}}>ABANDONED</span> : h.howOut} • {new Date(h.date).toLocaleDateString()}</p>
+                                <p className="history-details">How Out: {isAbandoned ? <span style={{color: '#ffeb3b', fontWeight: 'bold', background: 'rgba(255,235,59,0.2)', padding: '2px 6px', borderRadius: '4px'}}>{abandonText.toUpperCase()}</span> : h.howOut} • {new Date(h.date).toLocaleDateString()}</p>
                             </div>
                         )
                     })}

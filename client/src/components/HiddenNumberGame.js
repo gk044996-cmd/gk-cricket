@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getGame, playHiddenNumber } from '../api';
+import { getGame, playHiddenNumber, requestRematch, acceptRematch, declineRematch } from '../api';
 import './GameScreen.css';
 
-const HiddenNumberGame = ({ gameId, userEmail, username, onExit }) => {
+const HiddenNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
+    const getDisplayName = (email) => {
+        if (!email) return "Unknown";
+        if (email === userEmail) return username || "You";
+        if (email.startsWith("Bot")) return email;
+        return email.split('@')[0];
+    };
+
     const [game, setGame] = useState(null);
     const [loading, setLoading] = useState(true);
     const [secretInput, setSecretInput] = useState('');
@@ -49,14 +56,26 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit }) => {
         }
     }, [game, gameId, userEmail, loadGame]);
 
-    useEffect(() => {
-        if (game?.status === "finished") {
-            const timer = setTimeout(() => {
-                onExit(true);
-            }, 3000);
-            return () => clearTimeout(timer);
+    const opponentEmail = game?.player1 === userEmail ? game?.player2 : game?.player1;
+    const isBot = opponentEmail === "Bot";
+
+    const handlePlayAgain = async () => {
+        if (isBot) {
+            onPlayAgainBot(game.mode, game.gameType);
+        } else {
+            await requestRematch({ gameId, userEmail });
+            loadGame();
         }
-    }, [game?.status, onExit]);
+    };
+
+    const handleAcceptRematch = async () => {
+        await acceptRematch({ gameId, userEmail });
+    };
+
+    const handleDeclineRematch = async () => {
+        await declineRematch({ gameId });
+        loadGame();
+    };
 
     if (loading || !game) return <div className="game-loading">Loading Hidden Number...</div>;
 
@@ -67,8 +86,7 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit }) => {
     const myGuesses = amIP1 ? (gs.p1Guesses || []) : (gs.p2Guesses || []);
     const oppGuesses = amIP1 ? (gs.p2Guesses || []) : (gs.p1Guesses || []);
     
-    const opponentEmail = amIP1 ? game.player2 : game.player1;
-    const opponentName = opponentEmail.split('@')[0];
+    const opponentName = getDisplayName(opponentEmail);
     const isFinished = game.status === 'finished';
     const isMyTurn = gs.turn === userEmail;
 
@@ -109,7 +127,9 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit }) => {
 
     return (
         <div className="game-screen glass-card">
-            <button className="exit-btn" onClick={onExit}>⬅ Leave Game</button>
+            {!isFinished && (
+                <button className="exit-btn" onClick={() => onExit(false)}>⬅ Leave Game</button>
+            )}
             <h2 className="vs-title">{username} <span className="vs-badge">VS</span> {opponentName}</h2>
             <div className="mode-badge">HIDDEN NUMBER</div>
 
@@ -181,7 +201,7 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit }) => {
                             <ul style={{ listStyle: 'none', padding: 0 }}>
                                 {myGuesses.map((g, i) => (
                                     <li key={i} className="anim-guess-reveal mb-1 text-center" style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', marginBottom: '5px' }}>
-                                        {g.guess} ➔ <strong>{g.result}</strong>
+                                        <strong>{g.result === 'Correct' ? `Correct: ${g.guess}` : `${g.result} than ${g.guess}`}</strong>
                                     </li>
                                 ))}
                             </ul>
@@ -191,7 +211,7 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit }) => {
                             <ul style={{ listStyle: 'none', padding: 0 }}>
                                 {oppGuesses.map((g, i) => (
                                     <li key={i} className="anim-guess-reveal mb-1 text-center" style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', marginBottom: '5px' }}>
-                                        {g.guess} ➔ <strong>{g.result}</strong>
+                                        <strong>{g.result === 'Correct' ? `Correct: ${g.guess}` : `${g.result} than ${g.guess}`}</strong>
                                     </li>
                                 ))}
                             </ul>
@@ -203,9 +223,50 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit }) => {
             {isFinished && (
                 <div className="winner-popup">
                     <h2>Game Over!</h2>
-                    <p>Winner: <strong>{game.winner === userEmail ? "You! 🎉" : `${opponentName} 😔`}</strong></p>
-                    <p>Your secret was {mySecret}. Opponent's secret was {oppSecret}.</p>
-                    <button className="primary-btn mt-3" onClick={onExit}>Return to Dashboard</button>
+                    {game.howOut && game.howOut.startsWith('Abandoned') ? (
+                        <>
+                            <h3 style={{color: '#ffeb3b', margin: '15px 0'}}>{game.howOut.split(':')[1] === opponentEmail ? `${opponentName} left the game` : 'You left the game'}</h3>
+                            <div className="flex-row mt-3" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+                                <button className="exit-btn" onClick={() => onExit(true)} style={{background: '#d32f2f'}}>🚪 Exit Game</button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <p>Winner: <strong>{game.winner === userEmail ? "You! 🎉" : game.winner === opponentEmail ? `${opponentName} 😔` : "Draw 🤝"}</strong></p>
+                            <p>Your secret was {mySecret}. Opponent's secret was {oppSecret}.</p>
+                            
+                            {game.rematchRequestedBy && game.rematchRequestedBy !== userEmail && !game.rematchGameId && !game.rematchDeclined && (
+                                <div className="rematch-request mt-3 p-3" style={{background: 'rgba(255,255,255,0.1)', borderRadius: '10px'}}>
+                                    <p className="mb-2"><strong>{getDisplayName(game.rematchRequestedBy)}</strong> wants to play again!</p>
+                                    <div className="flex-row" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+                                        <button className="primary-btn" onClick={handleAcceptRematch}>Accept</button>
+                                        <button className="reject-btn" onClick={handleDeclineRematch}>Reject</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {game.rematchRequestedBy === userEmail && !game.rematchDeclined && !game.rematchGameId && (
+                                <p className="mt-3">⏳ Waiting for opponent to accept...</p>
+                            )}
+
+                            {game.rematchDeclined && game.rematchRequestedBy === userEmail && (
+                                <p className="error-text mt-3" style={{color: '#ff4d4d'}}>Opponent declined the rematch.</p>
+                            )}
+
+                            {!game.rematchRequestedBy && (
+                                <div className="flex-row mt-3" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+                                    <button className="primary-btn" onClick={handlePlayAgain}>🔁 Play Again</button>
+                                    <button className="exit-btn" onClick={() => onExit(true)} style={{background: '#d32f2f'}}>🚪 Exit Game</button>
+                                </div>
+                            )}
+                            
+                            {game.rematchDeclined && (
+                                <div className="flex-row mt-3" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+                                    <button className="exit-btn" onClick={() => onExit(true)} style={{background: '#d32f2f'}}>🚪 Exit Game</button>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
         </div>

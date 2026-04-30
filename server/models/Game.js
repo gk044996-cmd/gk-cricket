@@ -2,7 +2,9 @@ const mongoose = require("mongoose");
 
 const gameSchema = new mongoose.Schema({
     player1: { type: String, required: true },
-    player2: { type: String, required: true },
+    player2: { type: String },
+    players: [{ type: String }], // Array of all joined player emails
+    waitingFor: [{ type: String }], // Array of emails of players invited but not yet joined
     gameType: { type: String, default: "handcricket" },
     gameState: { type: mongoose.Schema.Types.Mixed, default: {} },
     score1: { type: Number, default: 0 },
@@ -33,7 +35,10 @@ const gameSchema = new mongoose.Schema({
         result: String, // "OUT" or "runs"
         runs: Number,
         turnCount: { type: Number, default: 0 }
-    }
+    },
+    rematchRequestedBy: { type: String, default: null },
+    rematchDeclined: { type: Boolean, default: false },
+    rematchGameId: { type: mongoose.Schema.Types.ObjectId, ref: "Game", default: null }
 });
 
 module.exports = mongoose.model("Game", gameSchema);

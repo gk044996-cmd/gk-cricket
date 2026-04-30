@@ -3,6 +3,13 @@ import { getGame, selectTossChoice, flipCoin, selectBatBowl } from '../api';
 import './GameScreen.css';
 
 const TossScreen = ({ gameId, userEmail, username, onExit, onTossComplete }) => {
+    const getDisplayName = (email) => {
+        if (!email) return "Unknown";
+        if (email === userEmail) return username || "You";
+        if (email.startsWith("Bot")) return email;
+        return email.split('@')[0];
+    };
+
     const [game, setGame] = useState(null);
     const [loading, setLoading] = useState(true);
     const [coinAnim, setCoinAnim] = useState(false);
@@ -43,7 +50,7 @@ const TossScreen = ({ gameId, userEmail, username, onExit, onTossComplete }) => 
 
     const amIP1 = game.player1 === userEmail;
     const opponentEmail = amIP1 ? game.player2 : game.player1;
-    const opponentName = opponentEmail.split('@')[0];
+    const opponentName = getDisplayName(opponentEmail);
 
     const toss = game.toss || {};
     
@@ -96,7 +103,7 @@ const TossScreen = ({ gameId, userEmail, username, onExit, onTossComplete }) => 
                                         <button className="primary-btn mt-3" style={{ fontSize: '24px', padding: '15px 30px' }} onClick={handleFlip}>🪙 FLIP COIN</button>
                                     </div>
                                 ) : (
-                                    <h4>Waiting for {game.player1.split('@')[0]} to flip the coin... ⏳</h4>
+                                    <h4>Waiting for {getDisplayName(game.player1)} to flip the coin... ⏳</h4>
                                 )}
                             </div>
                         )}
@@ -117,7 +124,7 @@ const TossScreen = ({ gameId, userEmail, username, onExit, onTossComplete }) => 
                                     </div>
                                 ) : (
                                     <div className="mt-4">
-                                        <h4 className="text-danger">{toss.winner.split('@')[0]} won the toss!</h4>
+                                        <h4 className="text-danger">{getDisplayName(toss.winner)} won the toss!</h4>
                                         <p>Waiting for them to decide...</p>
                                     </div>
                                 )}

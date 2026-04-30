@@ -1,0 +1,158 @@
+.ludo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.ludo-board-wrapper {
+    margin: 20px auto;
+    width: 100%;
+    max-width: 500px;
+    position: relative;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    overflow: hidden;
+    background: #fff;
+}
+
+.ludo-board-image-container {
+    width: 100%;
+    padding-bottom: 100%; /* 1:1 Aspect Ratio */
+    position: relative;
+    background-image: url('https://img.freepik.com/premium-vector/ludo-indoor-fun-board-game-illustration_34480-1366.jpg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.player-quadrant {
+    background: rgba(40, 40, 40, 0.8);
+    border: 4px solid;
+    border-radius: 15px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.player-quadrant:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+}
+
+.player-quadrant h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.tokens-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    justify-items: center;
+}
+
+.ludo-token-abs {
+    position: absolute;
+    width: 6.66%; /* 100% / 15 */
+    height: 6.66%;
+    border-radius: 50%;
+    transform: translate(0, 0);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.4), 0 3px 6px rgba(0,0,0,0.6);
+    border: 2px solid rgba(255,255,255,0.9);
+    z-index: 10;
+}
+
+.ludo-token-abs .token-inner {
+    width: 50%;
+    height: 50%;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.4);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.ludo-token-abs.small-token {
+    transform: scale(0.8);
+    z-index: 11;
+}
+
+.ludo-token-abs.clickable {
+    cursor: pointer;
+    animation: pulse 1.5s infinite;
+    z-index: 20;
+}
+
+.ludo-token-abs.clickable:hover {
+    transform: scale(1.1);
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.4), 0 5px 15px rgba(255,255,255,0.6);
+}
+
+.status-text {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #bbb;
+}
+
+.hint {
+    color: #29b6f6;
+    font-weight: bold;
+    animation: fadeInOut 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(255,255,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.turn-indicator {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin-top: 10px;
+    transition: all 0.3s;
+}
+
+.your-turn {
+    background-color: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
+}
+
+.bot-turn {
+    background-color: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+.roll-btn {
+    transition: all 0.3s;
+}
+
+.glow-active {
+    box-shadow: 0 0 15px rgba(41, 182, 246, 0.8);
+    animation: glowPulse 2s infinite;
+}
+
+.disabled-shade {
+    background-color: #555 !important;
+    color: #888 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+@keyframes glowPulse {
+    0% { box-shadow: 0 0 10px rgba(41, 182, 246, 0.5); }
+    50% { box-shadow: 0 0 25px rgba(41, 182, 246, 1); }
+    100% { box-shadow: 0 0 10px rgba(41, 182, 246, 0.5); }
+}
