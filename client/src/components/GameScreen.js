@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getGame, playLiveTurn, requestRematch, acceptRematch, declineRematch } from '../api';
+import TurnTimer from './TurnTimer';
+import { playSound } from './AudioSystem';
 import './GameScreen.css';
 
-const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
+const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot, equipped }) => {
     const getDisplayName = (email) => {
         if (!email) return "Unknown";
         if (email === userEmail) return username || "You";
@@ -12,7 +14,7 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
 
     const [game, setGame] = useState(null);
     const [loading, setLoading] = useState(true);
-    
+
     // Animation states
     const [animating, setAnimating] = useState(false);
     const [showBall, setShowBall] = useState(false);
@@ -20,18 +22,17 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
     const [resultAnim, setResultAnim] = useState(null);
     const [lastMoveDisp, setLastMoveDisp] = useState(null);
 
-    // Timer state
-    const [timeLeft, setTimeLeft] = useState(5);
+
 
     const prevTurnCount = useRef(0);
     const isPolling = useRef(true);
 
     const loadGame = useCallback(async () => {
         if (!isPolling.current) return;
-        
+
         try {
             const data = await getGame(gameId);
-            
+
             if (data.lastPlay && data.lastPlay.turnCount > prevTurnCount.current) {
                 isPolling.current = false;
                 setAnimating(true);
@@ -40,17 +41,20 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
                 setTimeout(() => {
                     setShowBall(false);
                     setShowBat(true);
-                    
+
                     setTimeout(() => {
                         setShowBat(false);
-                        
+
                         const isOut = data.lastPlay.result === "OUT";
+                        if (isOut) playSound('out');
+                        else playSound('hit');
+
                         setResultAnim(isOut ? "OUT!" : `+${data.lastPlay.runs}`);
                         setLastMoveDisp({
                             p1: data.lastPlay.p1,
                             p2: data.lastPlay.p2
                         });
-                        
+
                         setGame(data);
                         prevTurnCount.current = data.lastPlay.turnCount;
 
@@ -58,7 +62,6 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
                             setResultAnim(null);
                             setAnimating(false);
                             isPolling.current = true;
-                            setTimeLeft(5); // Reset timer after animation
                         }, 1500);
 
                     }, 500);
@@ -70,7 +73,7 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
                     if (data.lastPlay) prevTurnCount.current = data.lastPlay.turnCount;
                 }
             }
-            
+
             setLoading(false);
         } catch (e) { console.error(e); }
     }, [gameId, animating]);
@@ -84,7 +87,7 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
     const amIP1 = game?.player1 === userEmail;
     const opponentEmail = amIP1 ? game?.player2 : game?.player1;
     const isBot = opponentEmail === "Bot";
-    
+
     const myName = getDisplayName(userEmail);
     const opponentName = getDisplayName(opponentEmail);
     const myMoveSelected = game ? (amIP1 ? game.p1Move !== null : game.p2Move !== null) : false;
@@ -113,25 +116,6 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
         await playLiveTurn({ gameId, userEmail, move });
         loadGame();
     }, [game, animating, myMoveSelected, gameId, userEmail, loadGame]);
-
-    // Auto Turn Timer Logic
-    useEffect(() => {
-        if (game && game.status === 'playing' && !animating && !myMoveSelected) {
-            const timer = setInterval(() => {
-                setTimeLeft(prev => {
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        handlePlay('timeout'); // Auto-submit timeout
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-            return () => clearInterval(timer);
-        } else {
-            setTimeLeft(5);
-        }
-    }, [game, animating, myMoveSelected, handlePlay]);
 
     const handlePlayAgain = async () => {
         if (isBot) {
@@ -198,12 +182,10 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
 
             <div className="status-display">
                 {!isFinished && !animating && !myMoveSelected && (
-                    <div className="timer-box">
-                        <span className="timer-icon">⏳</span> {timeLeft}s
-                    </div>
+                    <TurnTimer isActive={true} onTimeout={() => handlePlay('timeout')} duration={10} />
                 )}
                 <p className="waiting-text">{waitingText}</p>
-                
+
                 {lastMoveDisp && !animating && (
                     <div className="last-moves">
                         <div className="move-box">You: <span>{amIP1 ? lastMoveDisp.p1 : lastMoveDisp.p2}</span></div>
@@ -214,10 +196,10 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
 
             {/* ANIMATIONS */}
             <div className="animation-container">
-                {showBall && <div className="ball-anim">🎾</div>}
-                {showBat && <div className="bat-anim">🏏</div>}
+                {showBall && <div className={`ball-anim anim-ball ${equipped?.ballEffect || ''}`}>🎾</div>}
+                {showBat && <div className={`bat-anim anim-bat ${equipped?.batEffect || ''}`}>🏏</div>}
                 {resultAnim && (
-                    <div className={`result-popup ${resultAnim === 'OUT!' ? 'out-popup' : 'runs-popup'}`}>
+                    <div className={`result-popup ${resultAnim === 'OUT!' ? (equipped?.outEffect || 'out-popup') : 'runs-popup'}`}>
                         {resultAnim}
                     </div>
                 )}
@@ -227,8 +209,8 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
                 <div className="controls">
                     <div className="buttons-grid">
                         {[1, 2, 3, 4, 5, 6].map(num => (
-                            <button 
-                                key={num} 
+                            <button
+                                key={num}
                                 className={`play-btn ${myMoveSelected ? 'disabled' : ''}`}
                                 onClick={() => handlePlay(num)}
                                 disabled={myMoveSelected || animating}
@@ -241,24 +223,24 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
             )}
 
             {isFinished && !animating && (
-                <div className="winner-popup">
+                <div className={`winner-popup ${(game.winner === userEmail) ? (equipped?.winEffect || '') : ''}`} style={{ position: 'relative', overflow: 'hidden' }}>
                     <h2>Game Over!</h2>
                     {game.howOut && game.howOut.startsWith('Abandoned') ? (
                         <>
-                            <h3 style={{color: '#ffeb3b', margin: '15px 0'}}>{game.howOut.split(':')[1] === opponentEmail ? `${opponentName} left the game` : 'You left the game'}</h3>
-                            <div className="flex-row mt-3" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
-                                <button className="exit-btn" onClick={() => onExit(true)} style={{background: '#d32f2f'}}>🚪 Exit Game</button>
+                            <h3 style={{ color: '#ffeb3b', margin: '15px 0' }}>{game.howOut.split(':')[1] === opponentEmail ? `${opponentName} left the game` : 'You left the game'}</h3>
+                            <div className="flex-row mt-3" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                <button className="exit-btn" onClick={() => onExit(true)} style={{ background: '#d32f2f' }}>🚪 Exit Game</button>
                             </div>
                         </>
                     ) : (
                         <>
                             <p>Winner: <strong>{game.winner === userEmail ? "You! 🎉" : game.winner === opponentEmail ? `${opponentName} 😔` : "Draw 🤝"}</strong></p>
                             <p>Final Score: {myScore} - {opponentScore}</p>
-                            
+
                             {game.rematchRequestedBy && game.rematchRequestedBy !== userEmail && !game.rematchGameId && !game.rematchDeclined && (
-                                <div className="rematch-request mt-3 p-3" style={{background: 'rgba(255,255,255,0.1)', borderRadius: '10px'}}>
+                                <div className="rematch-request mt-3 p-3" style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}>
                                     <p className="mb-2"><strong>{getDisplayName(game.rematchRequestedBy)}</strong> wants to play again!</p>
-                                    <div className="flex-row" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+                                    <div className="flex-row" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                                         <button className="primary-btn" onClick={handleAcceptRematch}>Accept</button>
                                         <button className="reject-btn" onClick={handleDeclineRematch}>Reject</button>
                                     </div>
@@ -270,19 +252,19 @@ const GameScreen = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => 
                             )}
 
                             {game.rematchDeclined && game.rematchRequestedBy === userEmail && (
-                                <p className="error-text mt-3" style={{color: '#ff4d4d'}}>Opponent declined the rematch.</p>
+                                <p className="error-text mt-3" style={{ color: '#ff4d4d' }}>Opponent declined the rematch.</p>
                             )}
 
                             {!game.rematchRequestedBy && (
-                                <div className="flex-row mt-3" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
+                                <div className="flex-row mt-3" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                                     <button className="primary-btn" onClick={handlePlayAgain}>🔁 Play Again</button>
-                                    <button className="exit-btn" onClick={() => onExit(true)} style={{background: '#d32f2f'}}>🚪 Exit Game</button>
+                                    <button className="exit-btn" onClick={() => onExit(true)} style={{ background: '#d32f2f' }}>🚪 Exit Game</button>
                                 </div>
                             )}
-                            
+
                             {game.rematchDeclined && (
-                                <div className="flex-row mt-3" style={{display: 'flex', gap: '10px', justifyContent: 'center'}}>
-                                    <button className="exit-btn" onClick={() => onExit(true)} style={{background: '#d32f2f'}}>🚪 Exit Game</button>
+                                <div className="flex-row mt-3" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                    <button className="exit-btn" onClick={() => onExit(true)} style={{ background: '#d32f2f' }}>🚪 Exit Game</button>
                                 </div>
                             )}
                         </>

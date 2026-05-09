@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getGame, playTicTacToe, requestRematch, acceptRematch, declineRematch } from '../api';
+import TurnTimer from "./TurnTimer";
 import './GameScreen.css';
 
 const TicTacToeGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
@@ -144,6 +145,12 @@ const TicTacToeGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) 
                     {!isMyTurn && !isFinished && <span className="batting-badge">Waiting</span>}
                 </div>
             </div>
+
+            {game.status === 'playing' && (
+                <TurnTimer isActive={isMyTurn && !makingMove} onTimeout={() => {
+                    playTicTacToe({ gameId, userEmail, move: 'timeout' }).then(loadGame);
+                }} duration={10} />
+            )}
 
             <div className="ttt-board" style={{
                 display: 'grid',

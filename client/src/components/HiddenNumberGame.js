@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getGame, playHiddenNumber, requestRematch, acceptRematch, declineRematch } from '../api';
+import TurnTimer from "./TurnTimer";
 import './GameScreen.css';
 
 const HiddenNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
@@ -173,7 +174,11 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
                     </div>
 
                     {!isFinished && isMyTurn && (
-                        <div className="action-area text-center mt-3">
+                        <>
+                            <TurnTimer isActive={!makingMove} onTimeout={() => {
+                                playHiddenNumber({ gameId, userEmail, move: 'timeout', type: 'guess' }).then(loadGame);
+                            }} duration={10} />
+                            <div className="action-area text-center mt-3">
                             <h4>Make a Guess</h4>
                             <div className="dial-pad" style={{ maxWidth: '250px', margin: '0 auto', background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '12px' }}>
                                 <div className="dial-display" style={{ background: '#fff', color: '#000', fontSize: '36px', height: '60px', borderRadius: '8px', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
@@ -189,6 +194,7 @@ const HiddenNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
                                 </div>
                             </div>
                         </div>
+                        </>
                     )}
                     
                     {!isFinished && !isMyTurn && (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getGame, playRPS, requestRematch, acceptRematch, declineRematch } from '../api';
+import TurnTimer from "./TurnTimer";
 import './GameScreen.css';
 
 const RPSGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
@@ -165,6 +166,9 @@ const RPSGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
 
             {!isFinished && !animatingRound && (
                 <div className="action-area text-center mt-4">
+                    <TurnTimer isActive={!myMove} onTimeout={() => {
+                        playRPS({ gameId, userEmail, move: 'timeout' }).then(loadGame);
+                    }} duration={10} />
                     {myMove ? (
                         <p className="waiting-text">⏳ Waiting for {opponentName} to choose...</p>
                     ) : (

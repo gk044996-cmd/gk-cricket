@@ -156,3 +156,26 @@
     75% { transform: translateX(-10px); }
     100% { transform: translateX(0); }
 }
+
+@media (max-width: 600px) {
+    .memory-board {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+        padding: 10px;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+    .memory-card {
+        width: 18vw;
+        height: 18vw;
+        max-width: 70px;
+        max-height: 70px;
+    }
+    .card-front, .card-back {
+        font-size: 20px;
+    }
+    .scores-hud { gap: 5px; }
+    .score-badge { padding: 5px 10px; font-size: 12px; }
+    .score-val { font-size: 16px; }
+    .card-back .animated-emoji { font-size: 30px !important; }
+}

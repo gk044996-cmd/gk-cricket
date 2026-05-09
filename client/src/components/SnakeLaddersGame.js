@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { getGame, playSnakeLadders, requestRematch, acceptRematch, declineRematch } from "../api";
+import TurnTimer from "./TurnTimer";
+import { playSound } from "./AudioSystem";
 import "./SnakeLaddersGame.css";
 
 
 
 const COLORS = ["#f44336", "#2196f3", "#4caf50", "#ffeb3b"];
 
-const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
+const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot, equipped }) => {
     const getDisplayName = (email) => {
         if (!email) return "Unknown";
         if (email === userEmail) return username || "You";
@@ -57,11 +59,13 @@ const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
                 if (current < targetWalk) {
                     const walk = async () => {
                         for (let i = current + 1; i <= targetWalk; i++) {
+                            playSound('move');
                             setDisplayPositions(prev => ({ ...prev, [p]: i }));
                             await new Promise(r => setTimeout(r, 300)); // 300ms per step
                         }
                         if (targetWalk !== finalPos) {
                             await new Promise(r => setTimeout(r, 500)); // brief pause before climbing/sliding
+                            if (finalPos > targetWalk) playSound('ladder'); else playSound('snake');
                             setDisplayPositions(prev => ({ ...prev, [p]: finalPos }));
                         }
                     };
@@ -104,6 +108,7 @@ const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
     const handleRoll = async () => {
         if (isRolling || game.currentTurn !== userEmail) return;
         setIsRolling(true);
+        playSound('roll');
         const v = Math.floor(Math.random() * 6) + 1;
         
         let rolls = 0;
@@ -152,7 +157,7 @@ const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
             const pos = displayPositions[p] || 1;
             const coords = getCoords(pos);
             return (
-                <div key={p} className="token absolute-token" style={{
+                <div key={p} className={`token absolute-token ${equipped?.snakeEffect || ''}`} style={{
                     backgroundColor: COLORS[idx],
                     left: `calc(${coords.x}% - 12px)`, // offset by half width (token is 24px)
                     top: `calc(${coords.y}% - 12px)`,
@@ -182,9 +187,10 @@ const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
     if (game.status === 'finished') {
         const opponentName = getDisplayName(game.players.find(p => p !== userEmail));
         
+        const amIWinner = game.winner === userEmail;
         return (
             <div className="container center-container">
-                <div className="winner-popup">
+                <div className={`winner-popup ${amIWinner ? (equipped?.winEffect || '') : ''}`} style={{position: 'relative', overflow: 'hidden'}}>
                     <h2>Game Over!</h2>
                     {game.howOut && game.howOut.startsWith('Abandoned') ? (
                         <>
@@ -247,6 +253,12 @@ const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
                     {isMyTurn ? "Your Turn!" : `${getDisplayName(game.currentTurn)}'s Turn`}
                 </div>
             </div>
+            
+            {game.status === 'playing' && (
+                <TurnTimer isActive={isMyTurn && !isRolling} onTimeout={() => {
+                    playSnakeLadders({ gameId, userEmail, diceValue: 'timeout' }).then(loadGame);
+                }} duration={10} />
+            )}
 
             <div className="players-hud">
                 {(game.players || []).map((p, i) => (
@@ -264,7 +276,7 @@ const SnakeLaddersGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
             </div>
 
             <div className="controls">
-                <div className={`dice ${isRolling ? 'rolling' : ''}`}>{diceVal}</div>
+                <div className={`dice ${isRolling ? 'rolling' : ''} ${equipped?.diceSkin || ''}`}>{diceVal}</div>
                 <button className="primary-btn roll-btn" onClick={handleRoll} disabled={!isMyTurn || isRolling}>
                     {isRolling ? "Rolling..." : "Roll Dice 🎲"}
                 </button>

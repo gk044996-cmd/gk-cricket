@@ -146,3 +146,24 @@
     75% { transform: translateX(-15px); }
     100% { transform: translateX(0); }
 }
+
+@media (max-width: 600px) {
+    .number-grid {
+        gap: 10px;
+        padding: 10px;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+    .num-box {
+        width: 25vw;
+        height: 25vw;
+        max-width: 80px;
+        max-height: 80px;
+    }
+    .num-front, .num-back {
+        font-size: 24px;
+    }
+    .info-panel { padding: 10px; flex-direction: column; text-align: center; gap: 5px; }
+    .target-num span { font-size: 20px; }
+    .p-status { padding: 3px 10px; font-size: 12px; }
+}

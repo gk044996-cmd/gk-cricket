@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getGame, playEvenOdd, requestRematch, acceptRematch, declineRematch } from '../api';
+import TurnTimer from "./TurnTimer";
 import './GameScreen.css';
 
 const EvenOddGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
@@ -119,11 +120,16 @@ const EvenOddGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) =>
                 <div className="action-area text-center mt-5">
                     <h3>Role Selection</h3>
                     {amIP1 ? (
-                        <div>
+                        <>
+                            <TurnTimer isActive={!makingMove} onTimeout={() => {
+                                handleSelectRole(Math.random() > 0.5 ? "Even" : "Odd");
+                            }} duration={10} />
+                            <div>
                             <p>You are Player 1! Choose your role for this match:</p>
                             <button className="primary-btn m-2" onClick={() => handleSelectRole("Even")}>Even</button>
                             <button className="primary-btn m-2" onClick={() => handleSelectRole("Odd")}>Odd</button>
                         </div>
+                        </>
                     ) : (
                         <p>⏳ Waiting for {getDisplayName(game.player1)} to choose Even or Odd...</p>
                     )}
@@ -157,6 +163,9 @@ const EvenOddGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) =>
 
             {!isFinished && (
                 <div className="action-area text-center mt-4">
+                    <TurnTimer isActive={!myMove} onTimeout={() => {
+                        playEvenOdd({ gameId, userEmail, move: 'timeout', type: 'play' }).then(loadGame);
+                    }} duration={10} />
                     {myMove ? (
                         <p className="waiting-text">⏳ Waiting for {opponentName} to choose...</p>
                     ) : (

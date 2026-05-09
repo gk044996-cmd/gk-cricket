@@ -38,7 +38,12 @@ const gameSchema = new mongoose.Schema({
     },
     rematchRequestedBy: { type: String, default: null },
     rematchDeclined: { type: Boolean, default: false },
-    rematchGameId: { type: mongoose.Schema.Types.ObjectId, ref: "Game", default: null }
+    rematchGameId: { type: mongoose.Schema.Types.ObjectId, ref: "Game", default: null },
+    chat: [{
+        sender: String,
+        message: String,
+        timestamp: { type: Date, default: Date.now }
+    }]
 });
 
 module.exports = mongoose.model("Game", gameSchema);

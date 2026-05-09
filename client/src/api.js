@@ -57,6 +57,71 @@ export const getAllUsers = async (email) => {
     return res.json();
 };
 
+export const getLeaderboard = async () => {
+    const res = await fetch(`${BASE_URL}/api/leaderboard`);
+    return res.json();
+};
+
+export const claimDailyLogin = async (data) => {
+    const res = await fetch(`${BASE_URL}/api/daily-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const spinWheel = async (data) => {
+    const res = await fetch(`${BASE_URL}/api/spin-wheel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const buyShopItem = async (data) => {
+    const res = await fetch(`${BASE_URL}/api/shop/buy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const equipShopItem = async (data) => {
+    const res = await fetch(`${BASE_URL}/api/shop/equip`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+export const getUserProfile = async (email) => {
+    const res = await fetch(`${BASE_URL}/api/user-profile/${email}`);
+    return res.json();
+};
+
+export const updateProfileDetails = async (data) => {
+    const res = await fetch(`${BASE_URL}/api/update-profile-details`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
+
+export const sendChat = async (data) => {
+    const res = await fetch(`${BASE_URL}/api/send-chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+};
+
 
 
 // 🤝 FRIEND SYSTEM

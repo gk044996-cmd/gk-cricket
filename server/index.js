@@ -63,9 +63,13 @@ app.post("/logout", async (req, res) => {
 app.post("/heartbeat", async (req, res) => {
     try {
         const { email } = req.body;
-        if (email) await User.findOneAndUpdate({ email }, { isOnline: true, lastSeen: Date.now() });
-        res.status(200).json("ok");
-    } catch (err) { res.status(500).json("Server error"); }
+        if (email) {
+            const user = await User.findOneAndUpdate({ email }, { isOnline: true, lastSeen: Date.now() });
+            if (!user) return res.status(404).json({ error: "User not found" });
+            return res.status(200).json({ status: "ok", equipped: user.equipped });
+        }
+        res.status(200).json({ status: "ok" });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
 });
 
 app.get("/users/:email", async (req, res) => {
@@ -138,6 +142,307 @@ app.delete("/remove-friend", async (req, res) => {
             await friend.save();
         }
         res.status(200).json("Removed friend");
+    } catch (err) { res.status(500).json("Server error"); }
+});
+
+// =========================
+// 🔥 ADVANCED SYSTEMS APIs
+// =========================
+
+app.get("/api/leaderboard", async (req, res) => {
+    try {
+        const users = await User.find({}).lean();
+        const globalRankings = users.sort((a, b) => (b.stats?.totalWins || 0) - (a.stats?.totalWins || 0)).map((u, i) => ({
+            username: u.username,
+            email: u.email,
+            profilePicture: u.profilePicture || '',
+            wins: u.stats?.totalWins || 0,
+            losses: u.stats?.totalLosses || 0,
+            winRate: u.stats?.totalMatches ? Math.round(((u.stats?.totalWins || 0) / u.stats.totalMatches) * 100) : 0,
+            streak: u.stats?.winStreak || 0,
+            level: u.level || 1,
+            rank: i + 1,
+            totalMatches: u.stats?.totalMatches || 0
+        }));
+        res.status(200).json(globalRankings);
+    } catch (err) { res.status(500).json("Server error"); }
+});
+
+app.post("/api/daily-login", async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const now = new Date();
+        const lastLogin = user.lastLoginReward ? new Date(user.lastLoginReward) : null;
+        
+        let canClaim = false;
+        let streak = user.loginStreak || 0;
+
+        if (!lastLogin) {
+            canClaim = true;
+            streak = 1;
+        } else {
+            const timeDiff = now.getTime() - lastLogin.getTime();
+            const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+            
+            if (daysDiff >= 1) {
+                canClaim = true;
+                if (daysDiff === 1) streak += 1;
+                else streak = 1; // reset streak
+            }
+        }
+
+        if (!canClaim) return res.status(400).json({ error: "Already claimed today" });
+
+        const xpReward = 50 + (streak * 10);
+        const coinReward = 20 + (streak * 5);
+        
+        user.xp += xpReward;
+        user.coins += coinReward;
+        user.level = Math.floor(user.xp / 100) + 1;
+        user.loginStreak = streak;
+        user.lastLoginReward = now;
+
+        await user.save();
+        res.status(200).json({ message: "Daily reward claimed", xpReward, coinReward, streak, xp: user.xp, coins: user.coins, level: user.level });
+    } catch (err) { res.status(500).json("Server error"); }
+});
+
+app.post("/api/spin-wheel", async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const now = new Date();
+        const lastSpin = user.lastSpinWheel ? new Date(user.lastSpinWheel) : null;
+        
+        if (lastSpin && (now.getTime() - lastSpin.getTime()) < 24 * 3600 * 1000) {
+            return res.status(400).json({ error: "Already spun today" });
+        }
+
+        // Possible rewards: 0=10 coins, 1=50 coins, 2=100 XP, 3=200 XP, 4=500 coins (rare), 5=0
+        const prizes = [
+            { type: 'coins', amount: 10, prob: 0.4 },
+            { type: 'coins', amount: 50, prob: 0.2 },
+            { type: 'xp', amount: 100, prob: 0.2 },
+            { type: 'xp', amount: 200, prob: 0.1 },
+            { type: 'coins', amount: 500, prob: 0.05 },
+            { type: 'nothing', amount: 0, prob: 0.05 }
+        ];
+        
+        const rand = Math.random();
+        let cumulative = 0;
+        let selectedPrize = prizes[0];
+        for(let p of prizes) {
+            cumulative += p.prob;
+            if(rand <= cumulative) {
+                selectedPrize = p;
+                break;
+            }
+        }
+
+        if (selectedPrize.type === 'coins') user.coins += selectedPrize.amount;
+        if (selectedPrize.type === 'xp') {
+            user.xp += selectedPrize.amount;
+            user.level = Math.floor(user.xp / 100) + 1;
+        }
+
+        user.lastSpinWheel = now;
+        await user.save();
+        
+        res.status(200).json({ prize: selectedPrize, xp: user.xp, coins: user.coins, level: user.level });
+    } catch (err) { res.status(500).json("Server error"); }
+});
+
+// =========================
+// 🔥 SHOP & INVENTORY APIs
+// =========================
+app.post("/api/shop/buy", async (req, res) => {
+    try {
+        const { email, itemId, price } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        if (user.inventory.includes(itemId)) {
+            return res.status(400).json({ error: "Item already owned" });
+        }
+        if (user.coins < price) {
+            return res.status(400).json({ error: "Not enough coins" });
+        }
+
+        user.coins -= price;
+        user.inventory.push(itemId);
+        await user.save();
+        
+        res.status(200).json({ success: true, coins: user.coins, inventory: user.inventory });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+app.post("/api/shop/equip", async (req, res) => {
+    try {
+        const { email, category, itemId } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        if (itemId !== "default" && !user.inventory.includes(itemId)) {
+            return res.status(400).json({ error: "Item not owned" });
+        }
+
+        if (!user.equipped) user.equipped = {};
+        user.equipped[category] = itemId;
+        user.markModified('equipped');
+        await user.save();
+        
+        res.status(200).json({ success: true, equipped: user.equipped });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+// =========================
+// 🎁 REWARDS APIs
+// =========================
+
+app.post("/api/rewards/daily", async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const now = new Date();
+        const lastLogin = user.lastDailyLogin;
+        let streak = user.dailyStreak || 0;
+
+        if (lastLogin) {
+            const diffTime = Math.abs(now - lastLogin);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0 && now.getDate() === lastLogin.getDate()) {
+                return res.status(400).json({ error: "You already claimed your daily reward today!" });
+            }
+            if (diffDays <= 1 || (diffDays === 1 && now.getDate() !== lastLogin.getDate())) {
+                streak += 1;
+            } else {
+                streak = 1; // reset streak
+            }
+        } else {
+            streak = 1;
+        }
+
+        const xpReward = 50 + (streak * 10);
+        const coinReward = 100 + (streak * 20);
+
+        user.xp = (user.xp || 0) + xpReward;
+        user.coins = (user.coins || 0) + coinReward;
+        user.lastDailyLogin = now;
+        user.dailyStreak = streak;
+
+        // Level up check
+        let newLevel = user.level || 1;
+        let xpNeeded = newLevel * 500;
+        while (user.xp >= xpNeeded) {
+            user.xp -= xpNeeded;
+            newLevel++;
+            user.level = newLevel;
+            xpNeeded = newLevel * 500;
+        }
+
+        await user.save();
+        res.status(200).json({ success: true, xpReward, coinReward, streak, xp: user.xp, level: user.level, coins: user.coins });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+app.post("/api/rewards/spin", async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const now = new Date();
+        const lastSpin = user.lastSpinDate;
+
+        if (lastSpin) {
+            const diffTime = Math.abs(now - lastSpin);
+            const diffHours = diffTime / (1000 * 60 * 60);
+
+            if (diffHours < 24 && now.getDate() === lastSpin.getDate()) {
+                return res.status(400).json({ error: "You can only spin once a day!" });
+            }
+        }
+
+        const prizes = [
+            { type: 'coins', amount: 50 },
+            { type: 'coins', amount: 100 },
+            { type: 'coins', amount: 500 },
+            { type: 'xp', amount: 100 },
+            { type: 'xp', amount: 200 },
+            { type: 'nothing', amount: 0 }
+        ];
+
+        // Random prize with simple weights
+        const rand = Math.random();
+        let prize;
+        if (rand < 0.4) prize = prizes[0]; // 40% 50 coins
+        else if (rand < 0.7) prize = prizes[1]; // 30% 100 coins
+        else if (rand < 0.8) prize = prizes[3]; // 10% 100 xp
+        else if (rand < 0.9) prize = prizes[5]; // 10% nothing
+        else if (rand < 0.95) prize = prizes[4]; // 5% 200 xp
+        else prize = prizes[2]; // 5% 500 coins
+
+        if (prize.type === 'coins') {
+            user.coins = (user.coins || 0) + prize.amount;
+        } else if (prize.type === 'xp') {
+            user.xp = (user.xp || 0) + prize.amount;
+            let newLevel = user.level || 1;
+            let xpNeeded = newLevel * 500;
+            while (user.xp >= xpNeeded) {
+                user.xp -= xpNeeded;
+                newLevel++;
+                user.level = newLevel;
+                xpNeeded = newLevel * 500;
+            }
+        }
+
+        user.lastSpinDate = now;
+        await user.save();
+
+        res.status(200).json({ success: true, prize, xp: user.xp, level: user.level, coins: user.coins });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+app.get("/api/user-profile/:email", async (req, res) => {
+    try {
+        const user = await User.findOne({ email: req.params.email }).lean();
+        if (!user) return res.status(404).json("User not found");
+        res.status(200).json(user);
+    } catch (err) { res.status(500).json("Server error"); }
+});
+
+app.put("/api/update-profile-details", async (req, res) => {
+    try {
+        const { email, bio, username, profilePicture } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json("User not found");
+        if(bio !== undefined) user.bio = bio;
+        if(username !== undefined) user.username = username;
+        if(profilePicture !== undefined) user.profilePicture = profilePicture;
+        await user.save();
+        res.status(200).json(user);
+    } catch (err) { res.status(500).json("Server error"); }
+});
+
+app.post("/api/send-chat", async (req, res) => {
+    try {
+        const { gameId, email, message } = req.body;
+        const game = await Game.findById(gameId);
+        if (!game) return res.status(404).json("Game not found");
+        const user = await User.findOne({ email }).lean();
+        const senderName = user ? user.username : email;
+        game.chat.push({ sender: senderName, message });
+        if (game.chat.length > 50) game.chat.shift(); // keep last 50 msgs
+        await game.save();
+        res.status(200).json(game);
     } catch (err) { res.status(500).json("Server error"); }
 });
 
@@ -278,6 +583,29 @@ app.post("/accept-game-invite", async (req, res) => {
             initialStatus = "playing";
             initialTurn = requester.email;
             initialState = { board: Array(9).fill(null) };
+        } else if (gameType === "snake-ladders") {
+            initialStatus = "playing";
+            initialState = { positions: {}, turnIndex: 0, lastDice: null };
+            [requester.email, user.email].forEach(p => initialState.positions[p] = 1);
+            initialTurn = requester.email;
+        } else if (gameType === "ludo") {
+            initialStatus = "playing";
+            initialState = { tokens: {}, turnIndex: 0, lastDice: null, hasRolled: false };
+            [requester.email, user.email].forEach(p => initialState.tokens[p] = [0,0,0,0]);
+            initialTurn = requester.email;
+        } else if (gameType === "memory-flip") {
+            initialStatus = "playing";
+            let cards = [1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8];
+            cards.sort(() => Math.random() - 0.5);
+            initialState = { cards: cards.map(c => ({ id: c, flipped: false, matched: false })), scores: {}, turnIndex: 0, flippedIndexes: [] };
+            [requester.email, user.email].forEach(p => initialState.scores[p] = 0);
+            initialTurn = requester.email;
+        } else if (gameType === "memory-number") {
+            initialStatus = "playing";
+            let nums = [1,2,3,4,5,6,7,8,9];
+            nums.sort(() => Math.random() - 0.5);
+            initialState = { grid: nums, currentTarget: 1, turnIndex: 0, revealed: [] };
+            initialTurn = requester.email;
         }
 
         const newGame = new Game({
@@ -540,6 +868,47 @@ const generateBotMove = (game, playerMove) => {
     return botMove;
 };
 
+const updateUserPostMatch = async (email, isWinner, isDraw, gameType) => {
+    if (!email || email === 'Bot') return;
+    try {
+        const user = await User.findOne({ email });
+        if (!user) return;
+        
+        let xpGained = isWinner ? 50 : (isDraw ? 20 : 10);
+        let coinsGained = isWinner ? 20 : (isDraw ? 10 : 5);
+        
+        user.xp += xpGained;
+        user.coins += coinsGained;
+        user.level = Math.floor(user.xp / 100) + 1;
+        
+        if (!user.stats) user.stats = {};
+        user.stats.totalMatches = (user.stats.totalMatches || 0) + 1;
+        
+        if (isWinner) {
+            user.stats.totalWins = (user.stats.totalWins || 0) + 1;
+            user.stats.winStreak = (user.stats.winStreak || 0) + 1;
+            if (user.stats.winStreak > (user.stats.bestStreak || 0)) {
+                user.stats.bestStreak = user.stats.winStreak;
+            }
+        } else if (!isDraw) {
+            user.stats.totalLosses = (user.stats.totalLosses || 0) + 1;
+            user.stats.winStreak = 0;
+        }
+
+        if (!user.stats.gameStats) user.stats.gameStats = {};
+        if (!user.stats.gameStats[gameType]) {
+            user.stats.gameStats[gameType] = { played: 0, won: 0 };
+        }
+        user.stats.gameStats[gameType].played += 1;
+        if (isWinner) user.stats.gameStats[gameType].won += 1;
+
+        user.markModified('stats');
+        await user.save();
+    } catch (e) {
+        console.error("Error updating user stats:", e);
+    }
+};
+
 const saveHistory = async (game, winner, howOut) => {
     try {
         let p1Name = game.player1;
@@ -575,6 +944,14 @@ const saveHistory = async (game, winner, howOut) => {
             gameType: game.gameType || 'handcricket'
         });
         await h.save();
+
+        if (game.player1 !== "Bot") {
+            await updateUserPostMatch(game.player1, winner === game.player1, winner === "Draw", game.gameType || 'handcricket');
+        }
+        if (game.player2 && game.player2 !== "Bot") {
+            await updateUserPostMatch(game.player2, winner === game.player2, winner === "Draw", game.gameType || 'handcricket');
+        }
+        
     } catch(e) { console.error(e) }
 };
 
@@ -697,6 +1074,15 @@ app.post("/play-hidden-number", async (req, res) => {
             if (amIP1) gs.p1Secret = move; else gs.p2Secret = move;
         } else if (type === "guess") {
             if (gs.turn !== userEmail) return res.status(400).json("Not your turn");
+            
+            if (move === "timeout") {
+                gs.turn = amIP1 ? game.player2 : game.player1;
+                game.gameState = gs;
+                game.markModified('gameState');
+                await game.save();
+                return res.status(200).json(game);
+            }
+
             const target = amIP1 ? gs.p2Secret : gs.p1Secret;
             let result = "";
             if (move === target) {
@@ -740,8 +1126,15 @@ app.post("/play-rps", async (req, res) => {
             const p1 = game.p1Move;
             const p2 = game.p2Move;
 
-            if (p1 === p2) winner = "Draw";
-            else if (
+            if (p1 === "timeout" && p2 === "timeout") {
+                winner = "Draw";
+            } else if (p1 === "timeout") {
+                winner = game.player2; gs.p2Wins += 1;
+            } else if (p2 === "timeout") {
+                winner = game.player1; gs.p1Wins += 1;
+            } else if (p1 === p2) {
+                winner = "Draw";
+            } else if (
                 (p1 === "rock" && p2 === "scissors") ||
                 (p1 === "paper" && p2 === "rock") ||
                 (p1 === "scissors" && p2 === "paper")
@@ -790,15 +1183,27 @@ app.post("/play-even-odd", async (req, res) => {
         if (game.player2 === userEmail) game.p2Move = move;
 
         if (game.p1Move && game.p2Move) {
-            const sum = game.p1Move + game.p2Move;
-            const isEven = sum % 2 === 0;
-            
+            let gs = { ...game.gameState };
             let roundWinner;
-            if (isEven) roundWinner = gs.p1Role === "Even" ? game.player1 : game.player2;
-            else roundWinner = gs.p1Role === "Odd" ? game.player1 : game.player2;
+            const p1 = game.p1Move;
+            const p2 = game.p2Move;
+            let sum = 0;
+
+            if (p1 === "timeout" && p2 === "timeout") {
+                roundWinner = "Draw";
+            } else if (p1 === "timeout") {
+                roundWinner = game.player2;
+            } else if (p2 === "timeout") {
+                roundWinner = game.player1;
+            } else {
+                sum = p1 + p2;
+                const isEven = sum % 2 === 0;
+                if (isEven) roundWinner = gs.p1Role === "Even" ? game.player1 : game.player2;
+                else roundWinner = gs.p1Role === "Odd" ? game.player1 : game.player2;
+            }
             
             if (roundWinner === game.player1) gs.p1Wins += 1;
-            else gs.p2Wins += 1;
+            else if (roundWinner === game.player2) gs.p2Wins += 1;
 
             gs.rounds.push({ p1Move: game.p1Move, p2Move: game.p2Move, sum, roundWinner });
 
@@ -827,6 +1232,14 @@ app.post("/play-tictactoe", async (req, res) => {
         if (game.currentTurn !== userEmail) return res.status(400).json("Not your turn");
 
         let gs = { ...game.gameState };
+
+        if (move === "timeout") {
+            game.currentTurn = game.player1 === userEmail ? game.player2 : game.player1;
+            game.markModified('gameState');
+            await game.save();
+            return res.status(200).json(game);
+        }
+
         if (gs.board[move]) return res.status(400).json("Spot taken");
 
         const symbol = game.player1 === userEmail ? "X" : "O";
@@ -875,6 +1288,15 @@ app.post("/play-snake-ladders", async (req, res) => {
 
         let gs = { ...game.gameState };
         
+        if (diceValue === "timeout") {
+            let currentIdx = game.players.indexOf(userEmail);
+            let nextIdx = (currentIdx + 1) % game.players.length;
+            game.currentTurn = game.players[nextIdx];
+            game.markModified('gameState');
+            await game.save();
+            return res.status(200).json(game);
+        }
+
         let currentPos = gs.positions[userEmail];
         let newPos = currentPos + diceValue;
         
@@ -923,6 +1345,16 @@ app.post("/play-ludo", async (req, res) => {
         if (game.currentTurn !== userEmail) return res.status(400).json("Not your turn");
 
         let gs = { ...game.gameState };
+
+        if (action === "timeout") {
+            gs.hasRolled = false;
+            let currentIdx = game.players.indexOf(userEmail);
+            game.currentTurn = game.players[(currentIdx + 1) % game.players.length];
+            game.gameState = gs;
+            game.markModified('gameState');
+            await game.save();
+            return res.status(200).json(game);
+        }
 
         if (action === "roll") {
             if (gs.hasRolled) return res.status(400).json("Already rolled");
@@ -1015,6 +1447,21 @@ app.post("/play-memory-flip", async (req, res) => {
 
         let gs = { ...game.gameState };
         
+        if (req.body.action === "timeout") {
+            if (gs.flippedIndexes.length > 0) {
+                gs.flippedIndexes.forEach(idx => {
+                    gs.cards[idx].flipped = false;
+                });
+                gs.flippedIndexes = [];
+            }
+            let currentIdx = game.players.indexOf(userEmail);
+            game.currentTurn = game.players[(currentIdx + 1) % game.players.length];
+            game.gameState = gs;
+            game.markModified('gameState');
+            await game.save();
+            return res.status(200).json(game);
+        }
+
         if (gs.flippedIndexes.length >= 2 || gs.cards[index].flipped || gs.cards[index].matched) {
             return res.status(400).json("Invalid flip");
         }
@@ -1094,6 +1541,18 @@ app.post("/play-memory-number", async (req, res) => {
         if (game.currentTurn !== userEmail) return res.status(400).json("Not your turn");
 
         let gs = { ...game.gameState };
+
+        if (req.body.action === "timeout") {
+            gs.currentTarget = 1;
+            gs.revealed = [];
+            let currentIdx = game.players.indexOf(userEmail);
+            game.currentTurn = game.players[(currentIdx + 1) % game.players.length];
+            game.gameState = gs;
+            game.markModified('gameState');
+            await game.save();
+            return res.status(200).json(game);
+        }
+
         let clickedNumber = gs.grid[index];
 
         if (clickedNumber === gs.currentTarget) {

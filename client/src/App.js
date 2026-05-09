@@ -4,7 +4,7 @@ import {
   registerUser, loginUser, logoutUser, heartbeat, getAllUsers,
   sendRequest, acceptRequest, getFriends, getRequests, removeFriend,
   sendGameInvite, acceptGameInvite, rejectGameInvite, getGameInvites,
-  startGame, updateProfile, getHistory, getActiveGame, leaveGame, sendMultiplayerInvites
+  startGame, getHistory, getActiveGame, leaveGame, sendMultiplayerInvites
 } from "./api";
 import GameScreen from "./components/GameScreen";
 import HiddenNumberGame from "./components/HiddenNumberGame";
@@ -16,6 +16,12 @@ import SnakeLaddersGame from "./components/SnakeLaddersGame";
 import LudoGame from "./components/LudoGame";
 import MemoryFlipGame from "./components/MemoryFlipGame";
 import MemoryNumberGame from "./components/MemoryNumberGame";
+import Leaderboard from "./components/Leaderboard";
+import ProfileStats from "./components/ProfileStats";
+import Rewards from "./components/Rewards";
+import SoundControl from "./components/SoundControl";
+import GameChat from "./components/GameChat";
+import Shop from "./components/Shop";
 
 const GAMES = [
     { id: 'handcricket', name: '🏏 Hand Cricket', desc: 'Classic hand cricket multiplayer' },
@@ -30,6 +36,7 @@ const GAMES = [
 ];
 
 function App() {
+  const [equipped, setEquipped] = useState({});
   const [isLogin, setIsLogin] = useState(true);
   const [user, setUser] = useState(null); // email
   const [username, setUsername] = useState(null);
@@ -97,24 +104,22 @@ function App() {
       localStorage.removeItem("userName");
   };
 
-  const handleUpdateName = async () => {
-      const newName = prompt("Enter new username:", username);
-      if(newName && newName.trim() !== "") {
-          const res = await updateProfile({ email: user, newUsername: newName });
-          if(res.username) {
-              setUsername(res.username);
-              localStorage.setItem("userName", res.username);
-              showNotification("Profile updated!");
-          }
-      }
-  };
+
 
   useEffect(() => {
     if (!user) return;
     
     const loadData = async () => {
       try {
-        await heartbeat({ email: user });
+        const hb = await heartbeat({ email: user });
+        if (hb.error === "User not found") {
+            handleLogout();
+            return;
+        }
+        if (hb.equipped) {
+            setEquipped(hb.equipped);
+            if (hb.equipped.theme) document.body.className = hb.equipped.theme;
+        }
         const [u, f, r, g, h, active] = await Promise.all([
             getAllUsers(user),
             getFriends(user),
@@ -143,6 +148,7 @@ function App() {
     loadData();
     const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentGame]);
 
   const handleSendFriendRequest = async (email) => {
@@ -235,6 +241,8 @@ function App() {
     
     if (currentGame.type === 'hidden-number') {
         return <HiddenNumberGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+    } else if (currentGame.type === 'handcricket') {
+        return <GameScreen gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} equipped={equipped} />;
     } else if (currentGame.type === 'rps') {
         return <RPSGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
     } else if (currentGame.type === 'evenodd') {
@@ -242,13 +250,13 @@ function App() {
     } else if (currentGame.type === 'tictactoe') {
         return <TicTacToeGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
     } else if (currentGame.type === 'snake-ladders') {
-        return <SnakeLaddersGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+        return <SnakeLaddersGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} equipped={equipped} />;
     } else if (currentGame.type === 'ludo') {
-        return <LudoGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+        return <LudoGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} equipped={equipped} />;
     } else if (currentGame.type === 'memory-flip') {
-        return <MemoryFlipGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+        return <MemoryFlipGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} equipped={equipped} />;
     } else if (currentGame.type === 'memory-number') {
-        return <MemoryNumberGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
+        return <MemoryNumberGame gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} equipped={equipped} />;
     }
     // Default to hand cricket
     return <GameScreen gameId={currentGame.id} userEmail={user} username={username} onExit={(normal) => handleExitGame(currentGame.id, normal)} onPlayAgainBot={handlePlayAgainBot} />;
@@ -275,9 +283,11 @@ function App() {
         <div className="nav-links">
           <button className={activeTab === 'home' ? 'active' : ''} onClick={() => setActiveTab('home')}>🏠 Home</button>
           <button className={activeTab === 'friends' ? 'active' : ''} onClick={() => setActiveTab('friends')}>👥 Friends</button>
+          <button className={activeTab === 'leaderboard' ? 'active' : ''} onClick={() => setActiveTab('leaderboard')}>🏆 Leaderboard</button>
+          <button className={activeTab === 'rewards' ? 'active' : ''} onClick={() => setActiveTab('rewards')}>🎁 Rewards</button>
           <button className={activeTab === 'history' ? 'active' : ''} onClick={() => setActiveTab('history')}>📜 History</button>
-          <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>👤 Profile</button>
-          <button className={activeTab === 'about' ? 'active' : ''} onClick={() => setActiveTab('about')}>ℹ️ About</button>
+          <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>👤 Profile</button>
+          <button className={`nav-item ${activeTab === 'shop' ? 'active' : ''}`} onClick={() => setActiveTab('shop')}>🛒 Shop</button>
         </div>
       </nav>
 
@@ -516,72 +526,17 @@ function App() {
             </div>
         )}
 
+        {activeTab === 'leaderboard' && <Leaderboard />}
+        {activeTab === 'rewards' && <Rewards userEmail={user} />}
         {activeTab === 'profile' && (
-            <div className="tab-content">
-                <div className="card glass-card profile-card">
-                    <div className="profile-avatar">👤</div>
-                    <h2>{username} <button className="edit-btn" onClick={handleUpdateName}>✏️</button></h2>
-                    <p>{user}</p>
-                    <div className="stats-row">
-                        <div className="stat-box"><h3>{friends.length}</h3><p>Friends</p></div>
-                        <div className="stat-box"><h3>{history.length}</h3><p>Matches</p></div>
-                    </div>
-                    <button className="logout-btn" onClick={handleLogout}>Logout</button>
+            <div>
+                <ProfileStats userEmail={user} currentUsername={username} equipped={equipped} />
+                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                    <button className="logout-btn" onClick={handleLogout} style={{ padding: '10px 30px', fontSize: '1.2em' }}>🚪 Logout</button>
                 </div>
             </div>
         )}
-
-        {activeTab === 'about' && (
-            <div className="tab-content">
-                <h2>ℹ️ About & Instructions</h2>
-                <div className="card glass-card mb-3">
-                    <h3>🏏 Hand Cricket</h3>
-                    <p>Classic hand cricket multiplayer. Choose numbers 1-6.</p>
-                    <ul style={{textAlign: 'left'}}>
-                        <li>If both players choose the same number, the batter is <strong>OUT</strong>.</li>
-                        <li>Otherwise, the batter scores the number they chose.</li>
-                        <li>Try to chase the target!</li>
-                    </ul>
-                </div>
-                <div className="card glass-card mb-3">
-                    <h3>🔢 Hidden Number</h3>
-                    <p>Guess the secret number.</p>
-                    <ul style={{textAlign: 'left'}}>
-                        <li>Set a secret number between 0-99.</li>
-                        <li>Take turns guessing your opponent's number.</li>
-                        <li>Use hints: <strong>Higher</strong> or <strong>Lower</strong> to narrow it down.</li>
-                    </ul>
-                </div>
-                <div className="card glass-card mb-3">
-                    <h3>✌️ Rock Paper Scissors</h3>
-                    <p>Classic RPS tournament.</p>
-                    <ul style={{textAlign: 'left'}}>
-                        <li>Rock beats Scissors.</li>
-                        <li>Scissors beats Paper.</li>
-                        <li>Paper beats Rock.</li>
-                        <li>First to win 3 rounds wins the match!</li>
-                    </ul>
-                </div>
-                <div className="card glass-card mb-3">
-                    <h3>🎲 Even-Odd Battle</h3>
-                    <p>Even or Odd? Sum it up!</p>
-                    <ul style={{textAlign: 'left'}}>
-                        <li>Player 1 is ALWAYS <strong>Even</strong>. Player 2 is ALWAYS <strong>Odd</strong>.</li>
-                        <li>Both players pick a number from 1 to 6.</li>
-                        <li>If the sum is EVEN, Player 1 wins the round. If ODD, Player 2 wins.</li>
-                        <li>First to 3 wins!</li>
-                    </ul>
-                </div>
-                <div className="card glass-card mb-3">
-                    <h3>❌ Tic Tac Toe ⭕</h3>
-                    <p>Classic 3x3 grid game.</p>
-                    <ul style={{textAlign: 'left'}}>
-                        <li>Get 3 of your marks in a row (horizontal, vertical, or diagonal) to win.</li>
-                        <li>If the board fills up without a winner, it's a draw.</li>
-                    </ul>
-                </div>
-            </div>
-        )}
+        {activeTab === 'shop' && <Shop userEmail={user} />}
 
       </div>
 
@@ -590,6 +545,11 @@ function App() {
           <p style={{ margin: 0, fontWeight: 'bold' }}>P. Ganesh Kumar</p>
           <p style={{ margin: 0, fontSize: '14px' }}><a href="mailto:gk044996@gmail.com" style={{ color: '#29b6f6', textDecoration: 'none' }}>gk044996@gmail.com</a></p>
       </footer>
+      
+      <SoundControl />
+      {currentGame && currentGame.status !== 'finished' && !currentGame.mode?.startsWith('bot') && (
+          <GameChat gameId={currentGame.id} userEmail={user} />
+      )}
     </div>
   );
 }

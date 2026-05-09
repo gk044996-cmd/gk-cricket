@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getGame, playLudo, requestRematch, acceptRematch, declineRematch } from "../api";
+import TurnTimer from "./TurnTimer";
+import { playSound } from "./AudioSystem";
 import "./LudoGame.css";
 
 const COLORS = ["#4caf50", "#ffeb3b", "#2196f3", "#f44336"];
@@ -39,7 +41,7 @@ const basePositions = [
 
 const startIndexes = [0, 13, 26, 39];
 
-const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
+const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot, equipped }) => {
     const getDisplayName = (email) => {
         if (!email) return "Unknown";
         if (email === userEmail) return username || "You";
@@ -153,6 +155,7 @@ const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
     const handleRoll = async () => {
         if (isRolling || game.currentTurn !== userEmail || game.gameState?.hasRolled) return;
         setIsRolling(true);
+        playSound('roll');
         const v = Math.floor(Math.random() * 6) + 1;
         setDiceVal(v);
         
@@ -167,6 +170,7 @@ const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
         if (game.currentTurn !== userEmail || !game.gameState?.hasRolled) return;
         // Don't move if still animating
         if (isAnimating) return;
+        playSound('move');
         
         await playLudo({ gameId, userEmail, action: "move", tokenIndex });
         loadGame();
@@ -178,9 +182,10 @@ const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
 
     if (game.status === 'finished') {
         const opponentName = getDisplayName(game.players.find(p => p !== userEmail));
+        const amIWinner = game.winner === userEmail;
         return (
             <div className="container center-container">
-                <div className="winner-popup">
+                <div className={`winner-popup ${amIWinner ? (equipped?.winEffect || '') : ''}`} style={{position: 'relative', overflow: 'hidden'}}>
                     <h2>Game Over!</h2>
                     {game.howOut && game.howOut.startsWith('Abandoned') ? (
                         <>
@@ -280,6 +285,12 @@ const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
                 </div>
             </div>
 
+            {game.status === 'playing' && (
+                <TurnTimer isActive={isMyTurn && !isRolling && !isAnimating} onTimeout={() => {
+                    playLudo({ gameId, userEmail, action: 'timeout' }).then(loadGame);
+                }} duration={10} />
+            )}
+
             <div className="players-hud">
                 {(game.players || []).map((p, i) => (
                     <div key={p} className={`player-badge ${game.currentTurn === p ? 'active' : ''}`} style={{borderColor: COLORS[i]}}>
@@ -307,7 +318,7 @@ const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
                         return (
                             <div 
                                 key={idx} 
-                                className={`ludo-token-abs ${isClickable ? 'clickable' : ''} ${t.totalAtPos > 1 ? 'small-token' : ''}`}
+                                className={`ludo-token-abs ${isClickable ? 'clickable' : ''} ${t.totalAtPos > 1 ? 'small-token' : ''} ${equipped?.ludoEffect || ''}`}
                                 style={{ 
                                     backgroundColor: COLORS[t.pIdx],
                                     left: `${leftPercent}%`,
@@ -327,7 +338,9 @@ const LudoGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
             </div>
 
             <div className="controls">
-                <div className={`dice ${isRolling ? 'rolling' : ''}`}>{game.gameState?.hasRolled ? game.gameState.lastDice.value : diceVal}</div>
+                <div className={`dice ${isRolling ? 'rolling' : ''} ${equipped?.diceSkin || ''}`}>
+                    {game.gameState?.hasRolled ? game.gameState.lastDice.value : diceVal}
+                </div>
                 <button 
                     className={`primary-btn roll-btn ${canRoll ? 'glow-active' : 'disabled-shade'}`} 
                     onClick={handleRoll} 

@@ -12,7 +12,25 @@ body {
   background-attachment: fixed;
   color: #fff;
   min-height: 100vh;
+  transition: background 0.5s ease;
 }
+
+body.theme_dark { background: #1a1a1a; }
+body.theme_cricket { background: #2e7d32; }
+body.theme_ocean { background: #006994; }
+body.theme_nature { background: #388E3C; }
+body.theme_neon { background: linear-gradient(135deg, #2b00ff, #ff00c8); }
+body.theme_retro { background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e); }
+body.theme_cyberpunk { background: #fcee0a; color: #000; }
+body.theme_fire { background: linear-gradient(to bottom, #870000, #190a05); }
+body.theme_ice { background: linear-gradient(to bottom, #00c6ff, #0072ff); }
+body.theme_galaxy { background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%); }
+body.theme_matrix { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; }
+body.theme_royal { background: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728, #fbf5b7); color: #000; }
+body.theme_rgb { background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; animation: rgbBg 10s linear infinite; }
+body.default { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
+
+@keyframes rgbBg { 0% { background-position: 0 0; } 100% { background-position: 400% 0; } }
 
 .container {
   max-width: 800px;
@@ -490,3 +508,63 @@ button:active {
   100% { box-shadow: 0 0 5px #ffd700; background: rgba(255, 215, 0, 0.2); }
 }
 .ttt-win-line { animation: winGlow 1.5s infinite; border-color: #ffd700 !important; }
+
+/* =============================
+   SHOP SKINS
+============================= */
+
+/* Dice Skins */
+.dice.dice_wood { background: #8B5A2B; color: #fff; border: 2px solid #5C3A21; }
+.dice.dice_stone { background: #7f8c8d; color: #fff; border: 2px solid #bdc3c7; }
+.dice.dice_fire { background: linear-gradient(135deg, #ff4e50, #f9d423); box-shadow: 0 0 15px #ff4e50; color: #fff; border: 2px solid #fff; }
+.dice.dice_gold { background: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728, #fbf5b7); box-shadow: 0 0 15px #ffd700; color: #000; font-weight: 900; border: 2px solid #fff; }
+.dice.dice_neon { background: transparent; box-shadow: 0 0 20px #0ff, inset 0 0 20px #0ff; color: #0ff; border: 2px solid #0ff; text-shadow: 0 0 10px #0ff; }
+.dice.dice_ice { background: linear-gradient(135deg, #e0eafc, #cfdef3); box-shadow: 0 0 15px #cfdef3; color: #1e3c72; border: 2px solid #fff; }
+.dice.dice_shadow { background: #000; box-shadow: 0 0 15px #000; color: #888; border: 2px solid #444; }
+.dice.dice_crystal { background: rgba(255,255,255,0.5); backdrop-filter: blur(5px); box-shadow: 0 0 15px rgba(255,255,255,0.8); color: #000; border: 2px solid #fff; }
+.dice.dice_lava { background: #111; color: #ff4e50; border: 2px solid #ff4e50; box-shadow: inset 0 0 10px #ff4e50, 0 0 10px #ff4e50; }
+.dice.dice_diamond { background: radial-gradient(circle, #fff, #b9f2ff); box-shadow: 0 0 20px #00e5ff; color: #000; border: 2px solid #00e5ff; }
+.dice.dice_rgb { background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; animation: rgbBg 3s linear infinite; color: #fff; border: 2px solid #fff; }
+.dice.dice_galaxy { background: radial-gradient(circle, #1b2735, #090a0f); box-shadow: 0 0 20px #9c27b0; color: #fff; border: 2px dotted #fff; }
+
+/* Card Skins */
+.memory-board.card_pixel .memory-card { border-radius: 0; border: 4px solid #fff; font-family: 'Courier New', Courier, monospace; }
+.memory-board.card_emoji .memory-card { background: rgba(255,255,0,0.2); border: 2px dashed #ffeb3b; }
+.memory-board.card_glass .memory-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); }
+.memory-board.card_glow .memory-card { box-shadow: 0 0 15px #e52e71, inset 0 0 10px #ff8a00; border: 2px solid #ff8a00; }
+.memory-board.card_wood .memory-card { background: linear-gradient(135deg, #8B5A2B, #A0522D); border: 2px solid #5C3A21; }
+.memory-board.card_gold .memory-card { background: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728, #fbf5b7); border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+.memory-board.card_fire .memory-card { background: #190a05; box-shadow: 0 0 15px #ff4e50, inset 0 0 10px #ff4e50; border: 2px solid #ff4e50; }
+.memory-board.card_anime .memory-card { background: #f8bbd0; border: 2px solid #f06292; box-shadow: 0 0 15px #f8bbd0; }
+.memory-board.card_space .memory-card { background: #090a0f; border: 2px solid #00e5ff; box-shadow: 0 0 15px #00e5ff; }
+.memory-board.card_rgb .memory-card { background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; animation: rgbBg 3s linear infinite; border: 2px solid #fff; }
+
+/* Avatar Borders */
+.border_silver { border: 4px solid #bdc3c7; box-shadow: 0 0 10px #bdc3c7; }
+.border_gold { border: 4px solid #f1c40f; box-shadow: 0 0 15px #f1c40f; }
+.border_neon { border: 4px solid #0ff; box-shadow: 0 0 20px #0ff, inset 0 0 10px #0ff; }
+.border_fire { border: 4px dashed #ff4e50; animation: fireBorder 1s infinite alternate; }
+.border_electric { border: 4px dotted #00bcd4; animation: elecBorder 0.2s infinite; }
+.border_rainbow { border: 4px solid transparent; background-origin: border-box; background-clip: content-box, border-box; background-image: linear-gradient(#000, #000), linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet); animation: rgbBorder 2s linear infinite; }
+
+@keyframes fireBorder { from { box-shadow: 0 0 10px #ff4e50; } to { box-shadow: 0 0 30px #f9d423; border-color: #f9d423; } }
+@keyframes elecBorder { 0% { border-color: #00bcd4; box-shadow: 0 0 20px #00bcd4; } 50% { border-color: #fff; box-shadow: 0 0 40px #fff; } 100% { border-color: #00bcd4; box-shadow: 0 0 20px #00bcd4; } }
+@keyframes rgbBorder { 100% { filter: hue-rotate(360deg); } }
+
+/* Game Effects */
+.effect_ball_trail { filter: drop-shadow(0 10px 10px rgba(255,255,255,0.8)); }
+.effect_bat_fire { filter: drop-shadow(0 0 20px #ff4e50); }
+.effect_out_explosion { animation: nukeExplosion 1s ease-out; }
+@keyframes nukeExplosion { 0% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(3); filter: brightness(3) hue-rotate(-50deg); opacity: 0.8; } 100% { transform: scale(1); filter: brightness(1); opacity: 1; } }
+
+.effect_ludo_trail { box-shadow: 0 10px 20px rgba(255, 255, 255, 0.6); }
+.effect_snake_bite { filter: drop-shadow(0 0 15px #0f0); }
+
+/* Win Effects */
+.win_confetti::before { content: '🎉🎉🎉'; position: absolute; top: -50px; left: 50%; transform: translateX(-50%); font-size: 50px; animation: rain 2s infinite; }
+.win_fireworks::before { content: '🎆🎇🎆'; position: absolute; top: -50px; left: 50%; transform: translateX(-50%); font-size: 50px; animation: pop 1s infinite alternate; }
+.win_gold_rain::before { content: '🪙🪙🪙'; position: absolute; top: -50px; left: 50%; transform: translateX(-50%); font-size: 50px; animation: rain 1.5s infinite; }
+.win_gg_spam::before { content: 'GG GG GG'; position: absolute; top: -50px; left: 50%; transform: translateX(-50%); font-size: 40px; color: #fff; animation: pop 0.5s infinite alternate; }
+
+@keyframes rain { 0% { top: -50px; opacity: 1; } 100% { top: 100%; opacity: 0; } }
+@keyframes pop { 0% { transform: translateX(-50%) scale(1); } 100% { transform: translateX(-50%) scale(1.5); } }

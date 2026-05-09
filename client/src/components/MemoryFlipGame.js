@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { getGame, playMemoryFlip, endMemoryFlipTurn, requestRematch, acceptRematch, declineRematch } from "../api";
+import TurnTimer from "./TurnTimer";
+import { playSound } from "./AudioSystem";
 import "./MemoryFlipGame.css";
 
-const MemoryFlipGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
+const MemoryFlipGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot, equipped }) => {
     const getDisplayName = (email) => {
         if (!email) return "Unknown";
         if (email === userEmail) return username || "You";
@@ -69,6 +71,7 @@ const MemoryFlipGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot })
         if (isProcessing || game.currentTurn !== userEmail || game.gameState?.flippedIndexes?.length >= 2) return;
         if (game.gameState.cards[idx].flipped || game.gameState.cards[idx].matched) return;
         
+        playSound('flip');
         setIsProcessing(true);
         await playMemoryFlip({ gameId, userEmail, index: idx });
         await loadGame();
@@ -81,9 +84,10 @@ const MemoryFlipGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot })
 
     if (game.status === 'finished') {
         const opponentName = getDisplayName(game.players.find(p => p !== userEmail));
+        const amIWinner = game.winner === userEmail;
         return (
             <div className="container center-container">
-                <div className="winner-popup">
+                <div className={`winner-popup ${amIWinner ? (equipped?.winEffect || '') : ''}`} style={{position: 'relative', overflow: 'hidden'}}>
                     <h2>Game Over!</h2>
                     {game.howOut && game.howOut.startsWith('Abandoned') ? (
                         <>
@@ -152,6 +156,12 @@ const MemoryFlipGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot })
                 </div>
             </div>
 
+            {game.status === 'playing' && (
+                <TurnTimer isActive={isMyTurn && game.gameState?.flippedIndexes?.length < 2 && !isProcessing} onTimeout={() => {
+                    playMemoryFlip({ gameId, userEmail, action: 'timeout' }).then(loadGame);
+                }} duration={10} />
+            )}
+
             <div className="scores-hud">
                 {(game.players || []).map((p) => (
                     <div key={p} className={`score-badge ${game.currentTurn === p ? 'active' : ''}`}>
@@ -161,7 +171,7 @@ const MemoryFlipGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot })
                 ))}
             </div>
 
-            <div className="memory-board">
+            <div className={`memory-board ${equipped?.cardSkin || ''}`}>
                 {(game.gameState?.cards || []).map((c, idx) => (
                     <div 
                         key={idx} 

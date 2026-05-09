@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { getGame, playMemoryNumber, requestRematch, acceptRematch, declineRematch } from "../api";
+import TurnTimer from "./TurnTimer";
 import "./MemoryNumberGame.css";
 
-const MemoryNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot }) => {
+const MemoryNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot, equipped }) => {
     const getDisplayName = (email) => {
         if (!email) return "Unknown";
         if (email === userEmail) return username || "You";
@@ -86,9 +87,10 @@ const MemoryNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
 
     if (game.status === 'finished') {
         const opponentName = getDisplayName(game.players.find(p => p !== userEmail));
+        const amIWinner = game.winner === userEmail;
         return (
             <div className="container center-container">
-                <div className="winner-popup">
+                <div className={`winner-popup ${amIWinner ? (equipped?.winEffect || '') : ''}`} style={{position: 'relative', overflow: 'hidden'}}>
                     <h2>Game Over!</h2>
                     {game.howOut && game.howOut.startsWith('Abandoned') ? (
                         <>
@@ -152,6 +154,12 @@ const MemoryNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
                 </div>
             </div>
 
+            {game.status === 'playing' && (
+                <TurnTimer isActive={isMyTurn && !isProcessing && wrongIndex === null} onTimeout={() => {
+                    playMemoryNumber({ gameId, userEmail, action: 'timeout' }).then(loadGame);
+                }} duration={10} />
+            )}
+
             <div className="info-panel">
                 <div className="target-num">Find: <span>{game.gameState?.currentTarget}</span></div>
             </div>
@@ -164,13 +172,13 @@ const MemoryNumberGame = ({ gameId, userEmail, username, onExit, onPlayAgainBot 
                 ))}
             </div>
 
-            <div className={`number-grid`}>
+            <div className={`number-grid memory-board ${equipped?.cardSkin || ''}`}>
                 {(game.gameState?.grid || []).map((num, idx) => {
                     const isRevealed = (game.gameState?.revealed || []).includes(idx);
                     return (
-                        <div 
-                            key={idx} 
-                            className={`num-box ${isRevealed || wrongIndex === idx ? 'revealed' : ''} ${wrongIndex === idx ? 'shake-error' : ''} ${isMyTurn && !isRevealed && wrongIndex === null ? 'clickable' : ''}`}
+                            <div 
+                                key={idx} 
+                                className={`num-box memory-card ${isRevealed || wrongIndex === idx ? 'revealed' : ''} ${wrongIndex === idx ? 'shake-error' : ''} ${isMyTurn && !isRevealed && wrongIndex === null ? 'clickable' : ''}`}
                             onClick={() => {
                                 if (isMyTurn && !isRevealed && wrongIndex === null) handlePick(idx);
                             }}

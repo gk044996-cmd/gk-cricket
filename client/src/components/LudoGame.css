@@ -156,3 +156,23 @@
     50% { box-shadow: 0 0 25px rgba(41, 182, 246, 1); }
     100% { box-shadow: 0 0 10px rgba(41, 182, 246, 0.5); }
 }
+
+@media (max-width: 600px) {
+    .ludo-board-wrapper {
+        max-width: 100vw;
+        margin: 10px 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .players-hud {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 5px;
+    }
+    .player-badge {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    .turn-indicator { padding: 4px 8px; font-size: 12px; }
+}
